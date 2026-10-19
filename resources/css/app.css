@@ -1,0 +1,54 @@
+@import 'tailwindcss';
+
+@source '../views';
+@source '../../config/menus.php';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@theme {
+    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/*
+ * Compatibilidad con Tailwind v3 (las vistas se escribieron con el CDN de Tailwind v3):
+ * en v4 el borde por defecto toma el color del texto y los botones no muestran la mano.
+ */
+@layer base {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-gray-200, currentColor);
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: var(--color-gray-400);
+    }
+
+    button:not(:disabled),
+    [role='button']:not(:disabled) {
+        cursor: pointer;
+    }
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+/* Entrada suave de las ventanas de resultado y selección en caseta. */
+@keyframes pop {
+    from {
+        transform: scale(0.85);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@utility animate-pop {
+    animation: pop 0.25s ease-out;
+}
