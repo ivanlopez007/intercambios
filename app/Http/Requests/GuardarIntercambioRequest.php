@@ -1,5 +1,21 @@
 <?php
 
+/*
+ * ************************************************************
+ * Captura de intercambios (asistente: checklist, llantas, fotos, firmas)
+ * Archivos necesarios:
+ *   IntercambioController.php, RegistrarIntercambio.php, GuardarIntercambioRequest.php,
+ *   Intercambio.php, BitacoraIntercambio.php, FotoIntercambio.php, LlantaIntercambio.php,
+ *   PuntoInspeccion.php, RevisionPunto.php, intercambios/nuevo.blade.php,
+ *   partials/checklist.blade.php, partials/diagrama-llantas.blade.php,
+ *   partials/fotos.blade.php, partials/punto.blade.php, partials/estado-subida.blade.php,
+ *   intercambio.js, intercambio-almacen.js, config/intercambios.php,
+ *   create_bitacora_intercambios_table.php
+ * Fecha: 08 oct 2026 - 19 oct 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
 namespace App\Http\Requests;
 
 use App\Models\Caja;
@@ -84,12 +100,12 @@ class GuardarIntercambioRequest extends FormRequest
             'caja.nuevo.cliente_nuevo.rfc' => 'nullable|string|max:13',
             'caja.nuevo.numero_economico' => 'required_with:caja.nuevo|nullable|string|max:30',
             'caja.nuevo.placa' => 'required_with:caja.nuevo|nullable|string|max:20',
-            'caja.nuevo.tipo_caja_id' => 'nullable|integer|exists:db_externa.tipos_caja,id',
+            'caja.nuevo.tipo_caja_id' => 'nullable|integer|exists:tipos_caja,id',
             ...$this->reglasUnidad('caja.nuevo'),
             'caja.nuevo.tamano_pies' => 'nullable|integer|min:1|max:100',
             'caja.correccion' => 'nullable|array',
             'caja.correccion.placa' => 'nullable|string|max:20',
-            'caja.correccion.tipo_caja_id' => 'nullable|integer|exists:db_externa.tipos_caja,id',
+            'caja.correccion.tipo_caja_id' => 'nullable|integer|exists:tipos_caja,id',
             ...$this->reglasUnidad('caja.correccion'),
             'caja.correccion.tamano_pies' => 'nullable|integer|min:1|max:100',
 

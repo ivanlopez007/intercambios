@@ -1,4 +1,14 @@
 /*
+ * ************************************************************
+ * Modo sin conexión (PWA y cola offline)
+ * Archivos necesarios:
+ *   public/sw.js, pwa.js, cola-offline.js
+ * Fecha: 14 sep 2026 - 25 sep 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
+/*
  * Cola de registros de caseta hechos sin conexión.
  *
  * Los registros se guardan en IndexedDB (base "hefesto-caseta", la misma que lee public/sw.js)

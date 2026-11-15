@@ -1,3 +1,13 @@
+{{--
+    ************************************************************
+    Administración de usuarios
+    Archivos necesarios:
+      UsuarioController.php, UsuarioRequest.php, usuarios/index.blade.php,
+      usuarios/form.blade.php
+    Fecha: 28 jul 2026 - 07 ago 2026
+    Realizado por: Ivan Lopez
+    ************************************************************
+--}}
 @extends('admin.layout.layout')
 
 @section('title', 'Usuarios')
@@ -15,14 +25,14 @@
                 </div>
                 <div>
                     <h2 class="text-xl font-bold text-slate-900 leading-tight">Usuarios</h2>
-                    <p class="text-xs text-slate-500">Cuentas de acceso para caseta y administración</p>
+                    <p class="text-xs text-slate-500">Cuentas de acceso para caseta y administración. A los empleados se les da acceso desde la app de RH (Intercambios).</p>
                 </div>
             </div>
 
             <a href="{{ route('admin.usuarios.create') }}"
                 class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-sm">
                 <i class="fa-solid fa-user-plus text-base"></i>
-                <span>Nuevo usuario</span>
+                <span>Nueva cuenta genérica</span>
             </a>
         </div>
 
@@ -43,7 +53,7 @@
             <div class="relative flex-1">
                 <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-sm"></i>
                 <label for="buscar" class="sr-only">Buscar</label>
-                <input type="search" id="buscar" name="buscar" value="{{ request('buscar') }}" placeholder="Buscar por nombre o correo..."
+                <input type="search" id="buscar" name="buscar" value="{{ request('buscar') }}" placeholder="Buscar por nombre, correo o número de empleado..."
                     class="w-full pl-9 pr-3 py-2.5 text-sm text-slate-800 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
             </div>
             <label for="filtro-rol" class="sr-only">Rol</label>
@@ -63,6 +73,7 @@
                 <thead class="bg-slate-50 text-slate-500 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
                     <tr>
                         <th scope="col" class="px-4 py-3.5">Usuario</th>
+                        <th scope="col" class="px-4 py-3.5">Tipo</th>
                         <th scope="col" class="px-4 py-3.5">Rol</th>
                         <th scope="col" class="px-4 py-3.5">Estado</th>
                         <th scope="col" class="px-4 py-3.5">Alta</th>
@@ -75,12 +86,26 @@
                     <tr class="hover:bg-slate-50/80 transition-colors {{ $usuario->activo ? '' : 'opacity-60' }}">
                         <td class="px-4 py-3">
                             <div class="font-bold text-slate-900">
-                                {{ $usuario->name }}
+                                {{ $usuario->nombre_mostrado }}
                                 @if ($esYo)
                                 <span class="ml-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">Tú</span>
                                 @endif
                             </div>
                             <div class="text-xs text-slate-500">{{ $usuario->email }}</div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            @if ($usuario->esVinculado())
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-violet-50 text-violet-700 border border-violet-200" title="Nombre, correo y contraseña se administran desde RH">
+                                <i class="fa-solid fa-id-badge"></i> Empleado RH ({{ $usuario->empleado?->numero_empleado ?? '?' }})
+                            </span>
+                            @if ($usuario->empleado?->trashed())
+                            <div class="mt-1 text-[11px] font-semibold text-rose-700">Dado de baja en RH</div>
+                            @endif
+                            @else
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                <i class="fa-solid fa-users-viewfinder"></i> Genérica
+                            </span>
+                            @endif
                         </td>
                         <td class="px-4 py-3">
                             @if ($usuario->rol === 'admin')
@@ -112,7 +137,7 @@
 
                                 @unless ($esYo)
                                 <form method="POST" action="{{ route('admin.usuarios.estado', $usuario) }}"
-                                    onsubmit="return confirm(@js($usuario->activo ? "¿Desactivar a {$usuario->name}? Su sesión se cerrará de inmediato." : "¿Activar a {$usuario->name}?"))">
+                                    onsubmit="return confirm(@js($usuario->activo ? "¿Desactivar a {$usuario->nombre_mostrado}? Su sesión se cerrará de inmediato." : "¿Activar a {$usuario->nombre_mostrado}?"))">
                                     @csrf
                                     @method('PATCH')
                                     @if ($usuario->activo)
@@ -131,7 +156,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="text-center py-8 text-slate-400 font-medium">No se encontraron usuarios.</td>
+                        <td colspan="6" class="text-center py-8 text-slate-400 font-medium">No se encontraron usuarios.</td>
                     </tr>
                     @endforelse
                 </tbody>

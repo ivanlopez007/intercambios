@@ -1,8 +1,16 @@
 <?php
 
 /*
- * Escrito por: Ivan Lopez
- * Fecha:
+ * ************************************************************
+ * Caseta: entradas y salidas de visitantes (con firma y fotos)
+ * Archivos necesarios:
+ *   VisitaExternoController.php, VisitaExterno.php, BitacoraVisita.php, FotoVisitaExterno.php,
+ *   RequerimientoFotoVisitaExterno.php, UserExterno.php, InfoUsuarioExterno.php,
+ *   entrada.blade.php, salida.blade.php, caseta/menu.blade.php, modal-resultado.blade.php,
+ *   caseta.js, caseta-ui.js, create_bitacora_visitas_table.php
+ * Fecha: 24 ago 2026 - 11 sep 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
  */
 
 namespace App\Http\Controllers;
@@ -46,7 +54,7 @@ class VisitaExternoController extends Controller
     /**
      * Muestra el historial real de entradas y salidas registradas, con búsqueda y filtros básicos.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 29 sep 2026
      */
     public function historial(Request $request)
     {
@@ -82,7 +90,7 @@ class VisitaExternoController extends Controller
         // Se pagina para limitar los resultados y se conservan los filtros al cambiar de página.
         $visitas = $query->latest('fecha_entrada')->paginate(15)->withQueryString();
 
-        // Quién registró cada entrada y salida (bitácora en la base local).
+        // Quién registró cada entrada y salida (bitacora_visitas).
         $autores = BitacoraVisita::autoresDe($visitas->pluck('id'));
 
         return view('admin.entradas-salidas.historial', compact('visitas', 'autores'));
@@ -97,7 +105,7 @@ class VisitaExternoController extends Controller
      *
      * Los registros hechos sin conexión llegan después con `id_cliente` y `registrado_en`.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 25 ago 2026
      */
     public function store(Request $request): JsonResponse
     {
@@ -107,7 +115,7 @@ class VisitaExternoController extends Controller
     /**
      * Valida los datos de entrada, guarda la firma y crea la visita.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 26 ago 2026
      */
     private function registrarEntrada(Request $request): JsonResponse
     {
@@ -130,7 +138,7 @@ class VisitaExternoController extends Controller
         if ($esEmpresaNueva) {
             $reglas['nombre_empresa'] = 'required|string|max:255';
         } else {
-            $reglas['codigo_qr'] = 'required|integer|exists:db_externa.empresas,id';
+            $reglas['codigo_qr'] = 'required|integer|exists:empresas,id';
         }
 
         $validated = $request->validate($reglas, [
@@ -175,7 +183,7 @@ class VisitaExternoController extends Controller
         $fechaEntrada = $this->fechaDelRegistro($request);
         $archivosSubidos = [$firmaRuta];
 
-        // La empresa (si es nueva), la visita y sus fotos se guardan en una transacción conjunta.
+        // La empresa (si es nueva), la visita, sus fotos y la bitácora se guardan en una transacción conjunta.
         // Si algo falla, se borran la firma y las fotos para no dejar archivos huérfanos en R2.
         try {
             $rutasFotos = [];
@@ -184,7 +192,7 @@ class VisitaExternoController extends Controller
                 $rutasFotos[$parte] = $archivosSubidos[] = $this->subirFoto($imagen);
             }
 
-            $visita = DB::connection('db_externa')->transaction(function () use ($esEmpresaNueva, $validated, $firmaRuta, $fechaEntrada, $rutasFotos) {
+            $visita = DB::transaction(function () use ($esEmpresaNueva, $validated, $firmaRuta, $fechaEntrada, $rutasFotos, $request) {
                 $empresa = $esEmpresaNueva
                     ? EmpresaExterno::firstOrCreate(['nombre' => $validated['nombre_empresa']], [
                         'razon_social' => '',
@@ -212,6 +220,8 @@ class VisitaExternoController extends Controller
                     ]);
                 }
 
+                $this->anotarEnBitacora($visita, 'entrada', $request, $fechaEntrada);
+
                 return $visita;
             });
         } catch (Throwable $e) {
@@ -219,8 +229,6 @@ class VisitaExternoController extends Controller
 
             throw $e;
         }
-
-        $this->anotarEnBitacora($visita, 'entrada', $request, $fechaEntrada);
 
         return response()->json([
             'success' => true,
@@ -232,7 +240,7 @@ class VisitaExternoController extends Controller
     /**
      * Personas que están dentro (visitas sin salida), para darles salida desde la lista.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 01 sep 2026
      */
     public function activas(): JsonResponse
     {
@@ -263,7 +271,7 @@ class VisitaExternoController extends Controller
      * - Con `codigo_qr` de la empresa. Si hay varias personas de esa empresa dentro, responde
      *   con la lista para que el guardia elija quién sale y reenvíe con `visita_id`.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 02 sep 2026
      */
     public function registrarSalida(Request $request): JsonResponse
     {
@@ -273,14 +281,14 @@ class VisitaExternoController extends Controller
     /**
      * Valida la solicitud, identifica la visita activa y registra su salida.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 03 sep 2026
      */
     private function cerrarVisita(Request $request): JsonResponse
     {
         // Se permite identificar la salida por visita o por empresa; el QR es opcional
         // cuando el usuario ya seleccionó una visita concreta.
         $validated = $request->validate([
-            'codigo_qr' => 'required_without_all:visita_id,entrada_id_cliente|nullable|integer|exists:db_externa.empresas,id',
+            'codigo_qr' => 'required_without_all:visita_id,entrada_id_cliente|nullable|integer|exists:empresas,id',
             'visita_id' => 'nullable|integer',
             'entrada_id_cliente' => 'nullable|uuid',
             'id_cliente' => 'nullable|uuid',
@@ -366,11 +374,14 @@ class VisitaExternoController extends Controller
         }
 
         // Con registros sin conexión, la salida nunca puede quedar antes que la entrada.
-        $visita->update([
-            'fecha_salida' => $fechaSalida->max($visita->fecha_entrada),
-        ]);
+        // La salida y su bitácora se guardan juntas.
+        DB::transaction(function () use ($visita, $fechaSalida, $request) {
+            $visita->update([
+                'fecha_salida' => $fechaSalida->max($visita->fecha_entrada),
+            ]);
 
-        $this->anotarEnBitacora($visita, 'salida', $request, $visita->fecha_salida);
+            $this->anotarEnBitacora($visita, 'salida', $request, $visita->fecha_salida);
+        });
 
         return response()->json([
             'success' => true,
@@ -380,29 +391,26 @@ class VisitaExternoController extends Controller
     }
 
     /**
-     * Anota en la bitácora local quién registró la entrada o salida. Si la bitácora falla,
-     * no se interrumpe el registro (la visita ya quedó guardada en la base externa).
+     * Anota en la bitácora quién registró la entrada o salida. Se llama dentro de la misma
+     * transacción que guarda la visita: si la bitácora falla, no se guarda el registro y el
+     * celular lo reintenta (la salida sin conexión necesita la bitácora de su entrada).
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 04 sep 2026
      */
     private function anotarEnBitacora(VisitaExterno $visita, string $tipo, Request $request, Carbon $fecha): void
     {
-        try {
-            $autor = $this->autorDelRegistro($request);
-            $idCliente = $request->input('id_cliente');
+        $autor = $this->autorDelRegistro($request);
+        $idCliente = $request->input('id_cliente');
 
-            BitacoraVisita::firstOrCreate(
-                ['visita_id' => $visita->id, 'tipo' => $tipo],
-                [
-                    'user_id' => $autor?->id,
-                    'usuario_nombre' => $autor?->name ?? 'Desconocido',
-                    'id_cliente' => is_string($idCliente) && Str::isUuid($idCliente) ? $idCliente : null,
-                    'registrado_en' => $fecha,
-                ],
-            );
-        } catch (Throwable $e) {
-            report($e);
-        }
+        BitacoraVisita::firstOrCreate(
+            ['visita_id' => $visita->id, 'tipo' => $tipo],
+            [
+                'user_id' => $autor?->id,
+                'usuario_nombre' => $autor?->nombre_mostrado ?? 'Desconocido',
+                'id_cliente' => is_string($idCliente) && Str::isUuid($idCliente) ? $idCliente : null,
+                'registrado_en' => $fecha,
+            ],
+        );
     }
 
     /**
@@ -410,7 +418,7 @@ class VisitaExternoController extends Controller
      * `registrado_por` el id cifrado por el servidor de quien tenía la sesión en ese momento
      * (no se puede falsificar); así se respeta aunque se envíen con la sesión de otra persona.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 04 sep 2026
      */
     private function autorDelRegistro(Request $request): ?User
     {
@@ -435,7 +443,7 @@ class VisitaExternoController extends Controller
      * Salida de la empresa registrada cerca de la hora indicada (antes o después, porque los
      * registros sin conexión pueden llegar después), o null si no hay ninguna.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 08 sep 2026
      */
     private function salidaReciente(EmpresaExterno $empresa, Carbon $fecha, int $minutos): ?VisitaExterno
     {
@@ -448,7 +456,7 @@ class VisitaExternoController extends Controller
     /**
      * Respuesta para una salida repetida: se conserva la primera y esta se cancela sin cambios.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 08 sep 2026
      */
     private function salidaRepetida(VisitaExterno $primera): JsonResponse
     {
@@ -465,7 +473,7 @@ class VisitaExternoController extends Controller
      * (por ejemplo, si la señal se cortó después de que el servidor lo guardó). La respuesta
      * exitosa se recuerda 7 días por `id_cliente`; un reenvío recibe la misma respuesta.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 17 sep 2026
      */
     private function procesarUnaVez(Request $request, Closure $accion): JsonResponse
     {
@@ -511,7 +519,7 @@ class VisitaExternoController extends Controller
      * conexión se usa la hora del celular, siempre que sea razonable (no futura ni de hace
      * más de 7 días); si no, la hora del servidor.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 18 sep 2026
      */
     private function fechaDelRegistro(Request $request): Carbon
     {
@@ -535,7 +543,7 @@ class VisitaExternoController extends Controller
     /**
      * Datos de una visita que se devuelven al celular de caseta (sin la firma).
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 09 sep 2026
      */
     private function resumenVisita(VisitaExterno $visita): array
     {
@@ -553,7 +561,7 @@ class VisitaExternoController extends Controller
      * Patrón "contiene" para LIKE donde % y _ escritos por el usuario se buscan como texto literal.
      * Se usa '!' como carácter de escape porque funciona igual en MySQL/MariaDB y SQLite.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 30 sep 2026
      */
     private function patronLike(string $valor): string
     {
@@ -564,7 +572,7 @@ class VisitaExternoController extends Controller
      * Decodifica una foto en Base64 (JPEG, PNG o WebP) y comprueba que sea una imagen real
      * y no exceda el tamaño máximo. Devuelve los bytes y su tipo, o null si no es válida.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 27 ago 2026
      */
     private function decodificarFoto(string $fotoBase64): ?array
     {
@@ -591,7 +599,7 @@ class VisitaExternoController extends Controller
     /**
      * Sube una foto ya validada como objeto privado a R2 y devuelve su ruta.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 27 ago 2026
      */
     private function subirFoto(array $imagen): string
     {
@@ -611,7 +619,7 @@ class VisitaExternoController extends Controller
      * Decodifica una firma en Base64 y la sube como objeto privado a Cloudflare R2,
      * devolviendo la ruta del objeto.
      * Escrito por: Ivan Lopez
-     * Fecha:
+     * Fecha: 28 ago 2026
      */
     private function guardarFirma(string $firmaBase64): ?string
     {

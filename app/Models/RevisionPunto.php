@@ -53,8 +53,6 @@ class RevisionPunto extends Model
         self::AGUJERO => 'Agujero (A)',
     ];
 
-    protected $connection = 'db_externa';
-
     protected $table = 'revision_puntos';
 
     protected $guarded = ['id'];

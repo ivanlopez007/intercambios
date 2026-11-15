@@ -17,8 +17,6 @@ class Operador extends Model
 {
     use SoftDeletes, SoloLectura;
 
-    protected $connection = 'db_externa';
-
     protected $table = 'users';
 
     protected $hidden = ['password', 'remember_token'];

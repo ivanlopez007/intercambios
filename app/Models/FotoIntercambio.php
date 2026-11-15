@@ -23,8 +23,6 @@ class FotoIntercambio extends Model
 
     public const UNIDADES = ['caja', 'tracto'];
 
-    protected $connection = 'db_externa';
-
     protected $table = 'fotos_intercambio';
 
     protected $guarded = ['id'];

@@ -5,6 +5,8 @@ $editando = $usuario->exists;
 $esYo = $editando && $usuario->is(auth()->user());
 $rolActual = old('rol', $usuario->rol);
 $activoActual = (bool) old('activo', $usuario->activo);
+// Perfil de un empleado de RH: nombre, correo y contraseña se administran desde RH.
+$vinculado = $editando && $usuario->esVinculado();
 @endphp
 
 @section('title', $editando ? 'Editar usuario' : 'Nuevo usuario')
@@ -30,8 +32,8 @@ $activoActual = (bool) old('activo', $usuario->activo);
                 <i class="fa-solid {{ $editando ? 'fa-user-pen' : 'fa-user-plus' }} text-xl"></i>
             </div>
             <div>
-                <h2 class="text-xl font-bold text-slate-900 leading-tight">{{ $editando ? $usuario->name : 'Nuevo usuario' }}</h2>
-                <p class="text-xs text-slate-500">{{ $editando ? 'Modifica los datos, el rol o la contraseña.' : 'Crea una cuenta y asígnale un rol.' }}</p>
+                <h2 class="text-xl font-bold text-slate-900 leading-tight">{{ $editando ? $usuario->nombre_mostrado : 'Nueva cuenta genérica' }}</h2>
+                <p class="text-xs text-slate-500">{{ $vinculado ? 'Empleado de RH: aquí solo se cambian el rol y el estado.' : ($editando ? 'Modifica los datos, el rol o la contraseña.' : 'Crea una cuenta que no es de una persona (p. ej. el celular de la caseta).') }}</p>
             </div>
         </div>
 
@@ -45,7 +47,42 @@ $activoActual = (bool) old('activo', $usuario->activo);
         </div>
         @endif
 
+        @unless ($editando)
+        <div class="p-4 rounded-2xl text-sm bg-blue-50 text-blue-900 border border-blue-200">
+            <i class="fa-solid fa-circle-info"></i>
+            ¿Es un empleado? No lo crees aquí: en la app de RH captura su correo real y márcale <strong>Intercambios</strong>.
+            Su perfil se crea solo en su primer inicio de sesión, con rol Caseta.
+        </div>
+        @endunless
+
         <!-- Datos -->
+        @if ($vinculado)
+        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Datos del empleado</span>
+                <span class="text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded">
+                    <i class="fa-solid fa-lock"></i> Se administra desde RH
+                </span>
+            </div>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div class="sm:col-span-2">
+                    <dt class="text-xs text-slate-500">Nombre completo</dt>
+                    <dd class="font-semibold text-slate-900">{{ $usuario->nombre_mostrado }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">Correo (para iniciar sesión)</dt>
+                    <dd class="font-semibold text-slate-900 break-all">{{ $usuario->email }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs text-slate-500">Número de empleado</dt>
+                    <dd class="font-semibold text-slate-900">{{ $usuario->empleado?->numero_empleado ?? '—' }}</dd>
+                </div>
+            </dl>
+            @if ($usuario->empleado?->trashed())
+            <p class="text-xs font-semibold text-rose-700"><i class="fa-solid fa-triangle-exclamation"></i> Este empleado está dado de baja en RH: no puede iniciar sesión.</p>
+            @endif
+        </div>
+        @else
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="sm:col-span-2">
                 <label for="name" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre completo</label>
@@ -59,6 +96,7 @@ $activoActual = (bool) old('activo', $usuario->activo);
                     class="w-full px-4 py-3 bg-white border rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none text-slate-900 {{ $errors->has('email') ? 'border-rose-400' : 'border-slate-300' }}">
             </div>
         </div>
+        @endif
 
         <!-- Rol -->
         <fieldset>
@@ -89,6 +127,15 @@ $activoActual = (bool) old('activo', $usuario->activo);
         </fieldset>
 
         <!-- Contraseña -->
+        @if ($vinculado)
+        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Contraseña</p>
+            <p class="text-sm text-slate-700">
+                <i class="fa-solid fa-lock text-slate-400"></i>
+                {{ $esYo ? 'Tu contraseña es la misma de la app de RH. Cámbiala desde RH.' : 'Es la misma de la app de RH. Se administra desde RH.' }}
+            </p>
+        </div>
+        @else
         <fieldset class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
             <div class="flex items-center justify-between gap-2">
                 <legend class="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -133,6 +180,7 @@ $activoActual = (bool) old('activo', $usuario->activo);
                 <button type="button" @click="navigator.clipboard?.writeText(generada)" class="ml-1 font-bold underline">Copiar</button>
             </div>
         </fieldset>
+        @endif
 
         <!-- Estado -->
         @if ($editando)
@@ -143,7 +191,7 @@ $activoActual = (bool) old('activo', $usuario->activo);
                     @checked($activoActual) @disabled($esYo)>
                 <span>
                     <span class="block font-bold text-slate-900 text-sm">Cuenta activa</span>
-                    <span class="block text-xs text-slate-500">Si la desactivas, el usuario no podrá entrar y su sesión abierta se cerrará de inmediato.</span>
+                    <span class="block text-xs text-slate-500">Si la desactivas, el usuario no podrá entrar y su sesión abierta se cerrará de inmediato.@if ($vinculado) Solo bloquea su perfil en Caseta; para quitarle el acceso por completo, desmárcale <strong>Intercambios</strong> en RH.@endif</span>
                 </span>
             </label>
         </div>
@@ -158,7 +206,7 @@ $activoActual = (bool) old('activo', $usuario->activo);
             </a>
             <button type="submit" class="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-sm flex items-center justify-center gap-2">
                 <i class="fa-solid fa-floppy-disk"></i>
-                {{ $editando ? 'Guardar cambios' : 'Crear usuario' }}
+                {{ $editando ? 'Guardar cambios' : 'Crear cuenta' }}
             </button>
         </div>
     </form>

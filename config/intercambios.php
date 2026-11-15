@@ -5,8 +5,9 @@
 | Módulo de intercambios
 |--------------------------------------------------------------------------
 |
-| Las tablas del módulo viven en la base de RH (conexión `db_externa`) y se crean con las
-| migraciones de la app de RH. Esta app solo tiene los modelos.
+| La app usa una sola base: la de RH (`laravel`). Todas las tablas, incluidas las de Caseta
+| (usuarios_caseta, bitacora_visitas, bitacora_intercambios), se crean con las migraciones de
+| la app de RH. Esta app solo tiene los modelos y no corre migraciones sobre esa base.
 |
 */
 

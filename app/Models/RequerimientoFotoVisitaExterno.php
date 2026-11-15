@@ -9,8 +9,6 @@ class RequerimientoFotoVisitaExterno extends Model
 {
     use HasFactory;
 
-    protected $connection = 'db_externa';
-
     protected $table = 'requerimiento_foto_visitas';
 
     protected $fillable = [

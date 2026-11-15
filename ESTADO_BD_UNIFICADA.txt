@@ -1,0 +1,385 @@
+=====================================================================
+ BASE UNIFICADA + IDENTIDAD Y CONTRASEÑA ÚNICAS
+ Instrucciones para adaptar la app de Caseta e Intercambios
+ Versión 3 (final) - 14 nov 2026
+ Generado desde la app principal (RH): IndustrialHefesto-APP
+=====================================================================
+
+Para: la IA/desarrollador que adapte el CÓDIGO de la app de Caseta.
+
+TODO LO DE BASE DE DATOS YA ESTÁ HECHO Y VERIFICADO (secciones 2 a 4).
+Tu parte es solo el código de la app de Caseta (secciones 5 a 8).
+No crees migraciones que toquen users, sistemas, sistema_usuario ni
+usuarios_caseta: el esquema lo administra la app RH.
+
+Complementa a INSTRUCCIONES_IA.md (misma carpeta). Donde choquen, manda
+ESTE archivo. En particular, la parte "Modelo User / guard caseta" y
+"UsuarioRequest" de INSTRUCCIONES_IA.md quedan REEMPLAZADAS por las
+secciones 5 y 6 de aquí.
+
+
+---------------------------------------------------------------------
+1. RESUMEN DEL DISEÑO
+---------------------------------------------------------------------
+- UNA sola base: `laravel` (MariaDB 10.4.32, 127.0.0.1:3306).
+- `users` (RH) es la fuente única de las PERSONAS y de su CONTRASEÑA.
+- `usuarios_caseta` es el PERFIL de cada cuenta dentro de Caseta (rol
+  admin/caseta, activo). Su columna `user_id` apunta a users.id.
+- Una persona tiene UNA contraseña para las dos apps:
+      App RH:     número de empleado + contraseña
+      App Caseta: correo             + la MISMA contraseña
+  La contraseña vive solo en users.password. Si cambia en RH, cambia en
+  Caseta en ese instante.
+- Cuentas genéricas (no son personas, p. ej. caseta@industrialhefesto.com):
+  user_id = NULL y conservan su propia contraseña en usuarios_caseta.
+- intercambios.guardia_id y las bitácoras siguen apuntando a
+  usuarios_caseta.id. NO se remapean.
+- La base vieja `intercambios` queda como respaldo: NO usarla ni borrarla.
+
+
+---------------------------------------------------------------------
+2. LO QUE YA ESTÁ HECHO EN LA BASE (NO REPETIR)
+---------------------------------------------------------------------
+Migraciones ejecutadas en `laravel` desde la app RH (tabla `migrations`):
+  2026_11_14_000001_create_usuarios_caseta_table
+  2026_11_14_000002_create_bitacora_visitas_table
+  2026_11_14_000003_create_bitacora_intercambios_table
+  2026_11_14_100000_create_sistemas_table            (sistemas + sistema_usuario)
+  2026_11_14_110000_vincular_usuarios_caseta_con_rh  (user_id + contraseña única)
+
+[x] Datos de la base local importados con los mismos ids:
+    usuarios_caseta 10, bitacora_visitas 2, bitacora_intercambios 829.
+    0 diferencias fila por fila contra la base vieja.
+[x] usuarios_caseta.user_id agregado: BIGINT UNSIGNED NULL, UNIQUE,
+    FK -> users.id ON DELETE SET NULL.
+[x] 9 personas vinculadas con su empleado de RH (tabla en la sección 4).
+[x] Su correo real quedó en users.email (antes tenían correo de relleno).
+[x] Contraseña única aplicada (sección 4.2).
+[x] Su contraseña local en usuarios_caseta quedó anulada (hash aleatorio).
+[x] Los 9 tienen la clave 'intercambios' en sistema_usuario.
+[x] Los otros 876 empleados de RH no se modificaron (verificado contra respaldo).
+[x] Respaldos en la app RH: storage/app/private/respaldos/
+      laravel_antes_unificar_20261114_162952.sql
+      intercambios_vieja_20261114_162952.sql
+      laravel_antes_vincular_20261114_165329.sql
+
+NO ejecutes 01_estructura.sql, 02_datos.sql ni las migraciones de la
+carpeta migraciones/: ya están aplicadas.
+
+
+---------------------------------------------------------------------
+3. TABLAS QUE USA CASETA
+---------------------------------------------------------------------
+users (RH) - SOLO LECTURA desde Caseta
+  id, numero_empleado, email, password (bcrypt, cost 12),
+  must_change_password, rol_id, area_id, fecha_ingreso, jornada_id,
+  jefe_inmediato_id, deleted_at (SoftDeletes = dado de baja),
+  remember_token, timestamps
+  - 885 registros, 166 activos (deleted_at IS NULL).
+  - La mayoría tiene correo DE RELLENO: termina en @empresa.local o
+    @example.com, o empieza con notiene@. Esos correos NUNCA sirven para
+    entrar a Caseta.
+  - users.email no tiene índice UNIQUE en la base; la app RH valida que no
+    se repita al guardar. Comparar siempre con LOWER(TRIM(email)).
+  - Nombre de la persona: info_usuarios (nombre, apellido_p, apellido_m),
+    info_usuarios.usuario_id -> users.id.
+
+sistemas / sistema_usuario (RH) - SOLO LECTURA desde Caseta
+  sistemas: 1 = clave 'rh', 2 = clave 'intercambios'
+  sistema_usuario: user_id -> users.id, sistema_id -> sistemas.id,
+                   UNIQUE(user_id, sistema_id)
+  RH lo administra en: Admin -> Usuarios -> crear/editar -> "Acceso a Sistemas".
+  Buscar SIEMPRE por clave ('intercambios'), nunca por id.
+
+usuarios_caseta (Caseta) - lectura y escritura desde Caseta
+  id (NO reasignar), user_id (NULL = genérica), name, email (UNIQUE),
+  email_verified_at, password, rol ('admin'|'caseta'), activo,
+  remember_token, timestamps.  AUTO_INCREMENT actual: 11.
+  En los perfiles vinculados, `password` es un hash aleatorio: no se usa
+  y no se debe cambiar.
+
+bitacora_visitas, bitacora_intercambios, intercambios.guardia_id
+  Apuntan a usuarios_caseta.id. Sin cambios.
+
+
+---------------------------------------------------------------------
+4. ESTADO ACTUAL DE LAS CUENTAS
+---------------------------------------------------------------------
+4.1 Vinculación (confirmada por el dueño)
+  caseta.id  correo (login Caseta)               users.id  núm. empleado  persona
+  1          equipment2@industrialhefesto.com    1647      HEF-0000714    Felipe Sebastian Andrade Garcia
+  2          equipment3@industrialhefesto.com    1648      HEF-0000715    Jesus Angel Mercado Vazquez
+  3          ivanlopez@industrialhefesto.com     1612      HEF-0000679    Ivan Alejandro Reyes Lopez
+  4          caseta@industrialhefesto.com        NULL      -              CUENTA GENÉRICA (rol caseta)
+  5          seguridad@industrialhefesto.com     1573      HEF-0000640    Luis Fernando Rivas Rodriguez
+  6          equipment@industrialhefesto.com     1415      HEF-0000482    Natalia Paola Martinez Tafoya
+  7          joaquinalday@industrialhefesto.com  1027      HEF-0000081    Joaquin Alday Manteca
+  8          rubenvaldes@industrialhefesto.com   1041      HEF-0000095    Ruben Jesus Valdes Prado
+  9          supervision4@industrialhefesto.com  1213      HEF-0000269    Salvador Eduardo Guillermo Balderas
+  10         csr1@industrialhefesto.com          1413      HEF-0000480    Eudi Guadalupe Flores Perez
+  Los 9 vinculados tienen rol 'admin' en usuarios_caseta.
+
+4.2 Qué contraseña quedó (ya aplicado)
+  - 1, 2, 5, 6, 7, 9, 10: nunca habían fijado contraseña en RH. Su
+    contraseña de Caseta de siempre pasó a ser también la de RH (se copió el
+    hash). Siguen entrando a Caseta con la misma contraseña que ya usaban,
+    y ahora también a RH con su número de empleado.
+  - 3 y 8: ya tenían contraseña propia en RH. Se conservó la de RH y desde
+    ahora es la que usan también en Caseta (su contraseña vieja de Caseta ya
+    no sirve).
+  - 4 (genérica): conserva su contraseña propia.
+  - must_change_password = 0 en los 9.
+
+4.3 Pruebas ya hechas sobre una copia de la base (todas OK)
+  RH entra con número de empleado + contraseña; Caseta con correo + la misma
+  contraseña (resuelve al perfil correcto); mayúsculas/espacios en el correo
+  no afectan; correo de relleno rechazado; hash local viejo inválido; sin
+  'intercambios' -> sin acceso; un cambio de contraseña en RH sirve de
+  inmediato en Caseta y la anterior deja de servir en ambas;
+  must_change_password -> bloqueo; empleado dado de baja -> sin acceso;
+  cuenta genérica valida su propia contraseña. Los hashes son compatibles
+  (bcrypt cost 12 en las dos apps).
+
+
+---------------------------------------------------------------------
+5. LOGIN DE CASETA (IMPLEMENTAR EXACTAMENTE ASÍ)
+---------------------------------------------------------------------
+Guard / modelo:
+  La sesión de Caseta SIEMPRE autentica un registro de usuarios_caseta.
+  Así Auth::user()->id sigue siendo el guardia_id de siempre.
+  - Caseta en su propio proyecto: su App\Models\User con
+      protected $table = 'usuarios_caseta';
+    y agregar 'user_id' a $fillable y una relación de solo lectura a la
+    tabla users de RH (modelo propio, p. ej. EmpleadoRh con
+    $table = 'users', SoftDeletes, sin escribir nunca).
+  - Si se integra dentro de la app RH: modelo UsuarioCaseta + guard
+    `caseta` + provider propio. NO tocar el guard `web` de RH.
+
+NO usar Auth::attempt() para los vinculados: la contraseña está en otra
+tabla. Validar a mano y luego Auth::login($perfil).
+
+Algoritmo (en este orden). Formulario: correo + contraseña. Mantener throttle.
+
+  $correo = mb_strtolower(trim($request->email));
+
+  PASO 1 - ¿Es una persona de RH?
+    Si el correo es de relleno -> saltar al PASO 2.
+    $empleado = users WHERE LOWER(TRIM(email)) = $correo AND deleted_at IS NULL
+    Si existe:
+      a) Hash::check($password, $empleado->password)  si no -> error genérico
+      b) tiene 'intercambios' activo en sistema_usuario  si no ->
+         "No tienes acceso a este sistema."
+      c) must_change_password == 1                   si sí ->
+         "Debes cambiar tu contraseña en la app de RH antes de entrar."
+         (pasa cuando un admin de RH le resetea la contraseña o es empleado
+         nuevo con contraseña inicial)
+      d) $perfil = usuarios_caseta WHERE user_id = $empleado->id
+         Si no existe -> CREARLO (alta automática):
+           user_id = $empleado->id, email = $correo,
+           name = nombre completo de info_usuarios, rol = 'caseta',
+           activo = 1, password = Hash::make(Str::random(64))
+         Si existe y su email no coincide con $correo -> actualizar
+           usuarios_caseta.email = $correo (RH es la fuente del correo).
+      e) $perfil->activo == 1                        si no -> "Cuenta desactivada."
+      f) Auth::login($perfil, $remember); regenerar sesión.
+      FIN.
+
+  PASO 2 - ¿Es una cuenta genérica?
+    $perfil = usuarios_caseta WHERE email = $correo AND user_id IS NULL
+    Si existe, Hash::check contra usuarios_caseta.password y activo = 1;
+    si pasa, Auth::login($perfil). FIN.
+
+  PASO 3 - Nada coincide -> error genérico.
+
+  Error genérico (1a, 2 y 3): el MISMO mensaje, p. ej.
+  "El correo o la contraseña no coinciden.", para no revelar qué correos
+  existen.
+
+  Regla de oro: un perfil CON user_id nunca entra por el PASO 2. Su
+  contraseña local no se usa.
+
+Revalidación en cada petición (middleware, p. ej. VerificarAccesoCaseta,
+en todas las rutas autenticadas):
+  Si Auth::user()->user_id no es NULL, comprobar que:
+    - el users sigue activo (deleted_at IS NULL),
+    - sigue con 'intercambios' en sistema_usuario,
+    - must_change_password = 0, y
+    - la contraseña no cambió desde que inició sesión: guardar en sesión
+      hash('sha256', users.password) al hacer login y comparar. Si cambió
+      (la cambiaron en RH), cerrar la sesión.
+  Si falla algo: Auth::logout(), invalidar sesión, regenerar token y mandar
+  al login con el mensaje correspondiente.
+  Consulta de ejemplo:
+    $emp = DB::table('users')->where('id', $perfil->user_id)->whereNull('deleted_at')->first();
+    $ok = $emp && !$emp->must_change_password
+       && hash('sha256', $emp->password) === session('caseta_pwd')
+       && DB::table('sistema_usuario as su')
+            ->join('sistemas as s', 's.id', '=', 'su.sistema_id')
+            ->where('su.user_id', $emp->id)
+            ->where('s.clave', 'intercambios')->where('s.activo', true)
+            ->exists();
+
+"Recordarme" (remember_token): está en usuarios_caseta; funciona igual. El
+middleware de arriba corta la sesión aunque venga de la cookie de recordar.
+
+Nombre mostrado y guardia_nombre:
+  - Vinculado: nombre completo desde info_usuarios.
+  - Genérica: usuarios_caseta.name.
+  Los nombres ya guardados en intercambios/bitácoras son históricos: no tocarlos.
+
+
+---------------------------------------------------------------------
+6. CONTRASEÑAS DENTRO DE CASETA
+---------------------------------------------------------------------
+Perfil VINCULADO:
+  - Caseta NO cambia ni resetea su contraseña. No mostrar "cambiar
+    contraseña" ni "olvidé mi contraseña" para ellos; mostrar el aviso
+    "Tu contraseña es la misma de la app de RH. Cámbiala desde RH."
+  - Nunca escribir en users.password.
+  - Nunca escribir en usuarios_caseta.password de un vinculado.
+Cuenta GENÉRICA:
+  - Se cambia en Caseta como hoy (solo admin de Caseta), con bcrypt.
+
+
+---------------------------------------------------------------------
+7. MÓDULO "USUARIOS" DEL ADMIN DE CASETA
+---------------------------------------------------------------------
+Listado: columna "Tipo": "Empleado RH (HEF-xxxxxxx)" o "Genérica".
+
+Perfil VINCULADO:
+  - Editable en Caseta: rol (admin/caseta) y activo.
+  - Solo lectura: correo, nombre, contraseña ("Se administra desde RH").
+  - Para quitarle el acceso por completo: en RH desmarcar "Intercambios".
+    En Caseta, "activo = 0" solo bloquea su perfil.
+
+Cuenta GENÉRICA:
+  - Alta/edición como hoy: nombre, correo, contraseña, rol, activo.
+  - Validación del correo (reemplaza la de INSTRUCCIONES_IA.md):
+      unique en usuarios_caseta.email (ignorando el propio id al editar), Y
+      que NO exista en users con deleted_at IS NULL (comparando LOWER(TRIM)).
+    Si existe en RH: "Ese correo es de un empleado; dale acceso a
+    Intercambios desde la app de RH."
+
+Dar acceso a un empleado nuevo: NO se crea en Caseta. En RH se le captura su
+correo real y se marca "Intercambios". En su primer login en Caseta se crea
+su perfil solo (paso 1.d) con rol 'caseta'; el admin de Caseta le sube el
+rol si hace falta.
+
+Del lado de RH (ya implementado): al guardar un empleado, RH rechaza un
+correo que ya use una cuenta genérica de Caseta o el perfil de otro
+empleado. Así no puede quedar un correo con dos dueños.
+
+
+---------------------------------------------------------------------
+8. RESTO DEL CÓDIGO (quitar db_externa)
+---------------------------------------------------------------------
+Igual que "Paso 2" de INSTRUCCIONES_IA.md:
+ 1. .env: DB_DATABASE=laravel; borrar DB_EXTERNA_*.
+ 2. Quitar `protected $connection = 'db_externa';` de los 22 modelos.
+ 3. `exists:db_externa.X,id` -> `exists:X,id` (VisitaExternoController,
+    GuardarIntercambioRequest, CatalogosIntercambio).
+ 4. DB::connection('db_externa')->... -> DB::... (RegistrarIntercambio,
+    VisitaExternoController).
+ 5. BitacoraIntercambio::create y BitacoraVisita::create dentro de la MISMA
+    DB::transaction que crea el intercambio/visita (recomendado).
+ 6. Reemplazar en IntercambioController, VisitaExternoController,
+    UsuarioController, UsuarioRequest, RegistrarIntercambio, BitacoraVisita
+    y ReporteIntercambios el uso del usuario autenticado para que siempre
+    sea el perfil de usuarios_caseta (Auth::user() del guard de Caseta).
+ 7. Al final quitar la conexión de config/database.php y comprobar:
+    grep -rn "db_externa" app config routes  -> sin resultados.
+
+
+---------------------------------------------------------------------
+9. RIESGOS POR COMPARTIR LA BASE (LEER ANTES DE CORRER NADA)
+---------------------------------------------------------------------
+A) Tabla `migrations` compartida con RH
+   - NUNCA correr migrate:fresh, migrate:refresh, migrate:reset, db:wipe ni
+     migrate:rollback desde Caseta.
+   - Borrar del proyecto de Caseta sus 3 migraciones VIEJAS de la base local
+     (crean users / bitacora_visitas / bitacora_intercambios); en `laravel`
+     saldrían pendientes e intentarían crear `users`, que es de RH.
+   - Las migraciones 2026_11_14_* ya figuran como ejecutadas. No copiarlas a
+     Caseta (son de RH).
+   - Antes de cualquier migrate: migrate:status y migrate --pretend.
+   - Las entradas 2026_10_06_200000_antiguedad_en_reingresos y
+     2026_10_14_120000_ordenar_ids_de_roles de `migrations` no son del repo
+     RH; no tocarlas.
+
+B) Caché, sesiones y colas en la misma base
+   RH usa CACHE_STORE, SESSION_DRIVER y QUEUE_CONNECTION = database con
+   APP_NAME=Laravel. En el .env de Caseta:
+     CACHE_PREFIX=caseta-cache-
+     SESSION_COOKIE=caseta_session
+     DB_QUEUE=caseta   (worker con --queue=caseta)
+
+C) Hash: mantener bcrypt (HASH_DRIVER por defecto) y BCRYPT_ROUNDS=12 en
+   Caseta. Si Caseta cambiara a argon, Hash::check fallaría con los hashes de RH.
+
+D) Archivos: solo se movió la base; firmas y fotos siguen en el
+   almacenamiento de Caseta.
+
+
+---------------------------------------------------------------------
+10. PRUEBAS QUE DEBE HACER CASETA AL TERMINAR
+---------------------------------------------------------------------
+Login (pedir las contraseñas al dueño; no inventarlas):
+ 1. caseta@industrialhefesto.com (genérica) con su contraseña de siempre -> entra (perfil 4).
+ 2. Una persona del grupo 4.2 primer punto (p. ej. equipment@...) con su
+    contraseña de siempre -> entra a Caseta (perfil 6) y, con su número de
+    empleado HEF-0000482, también a RH.
+ 3. ivanlopez@... con su contraseña de RH -> entra (perfil 3).
+ 4. Contraseña incorrecta y correo inexistente -> mismo mensaje.
+ 5. HEF-0000482@empresa.local -> no entra.
+ 6. En RH desmarcar "Intercambios" a una persona con sesión abierta en
+    Caseta -> la siguiente petición la saca. Volver a marcarlo -> entra.
+ 7. Cambiar la contraseña de esa persona en RH -> su sesión de Caseta se
+    cierra; entra con la nueva; la anterior no sirve.
+ 8. Empleado nuevo: en RH correo real + "Intercambios" + fijar contraseña
+    -> primer login en Caseta crea perfil id 11, rol caseta, user_id correcto.
+ 9. Empleado dado de baja en RH -> no entra.
+Admin de Caseta:
+10. Crear genérica con el correo de un empleado de RH -> rechazada.
+11. En un perfil vinculado no se puede editar correo/nombre/contraseña.
+Operación:
+12. Visita entrada/salida -> bitacora_visitas.user_id = id de usuarios_caseta.
+13. Intercambio con y sin conexión -> guardia_id = id de usuarios_caseta,
+    folio correcto, fila en bitacora_intercambios; reenvío offline no duplica.
+14. Historial, PDFs (contrato y CTPAT), patio, dashboard, reportes,
+    php artisan intercambios:limpiar-fotos.
+15. La app RH sigue funcionando (login con número de empleado).
+
+Consultas de control:
+  SELECT DISTINCT guardia_id FROM intercambios
+   WHERE guardia_id NOT IN (SELECT id FROM usuarios_caseta);           -- 0 filas
+  SELECT user_id, COUNT(*) FROM usuarios_caseta
+   WHERE user_id IS NOT NULL GROUP BY user_id HAVING COUNT(*) > 1;     -- 0 filas
+  SELECT c.id FROM usuarios_caseta c JOIN users u
+   ON LOWER(u.email) = LOWER(c.email) AND u.deleted_at IS NULL
+   WHERE c.user_id IS NULL;                                            -- 0 filas
+
+
+---------------------------------------------------------------------
+11. DATOS RAROS CONOCIDOS (ya venían así)
+---------------------------------------------------------------------
+- Intercambio id 53 (INT-2026-000001): sin bitácora; guardia_id = 5 pero
+  guardia_nombre = "Ivan Lopez". Registro de prueba inicial. No corregir
+  sin consultar.
+
+
+---------------------------------------------------------------------
+12. QUÉ NO HACER
+---------------------------------------------------------------------
+- No remapear intercambios.guardia_id ni las bitácoras.
+- No cambiar ids de usuarios_caseta ni su columna user_id de los 9 vinculados.
+- No escribir desde Caseta en users, info_usuarios, sistemas ni sistema_usuario.
+- No vincular cuentas por correo de forma automática en código: el vínculo
+  existe por user_id (o se crea en el paso 1.d desde un empleado ya
+  autorizado en RH).
+- No permitir login con correos de relleno.
+- No usar ni actualizar la contraseña local de un perfil vinculado.
+- No correr migraciones destructivas ni reimportar 02_datos.sql.
+- No borrar la base `intercambios` vieja hasta confirmar que todo funciona.
+
+Realizado por: Ivan Lopez
+=====================================================================

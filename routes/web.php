@@ -7,6 +7,7 @@ use App\Http\Controllers\EmpresaExternoController;
 use App\Http\Controllers\IntercambioController;
 use App\Http\Controllers\PatioController;
 use App\Http\Controllers\QrEmpresaController;
+use App\Http\Controllers\ReporteIntercambioController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\VisitaExternoController;
 use App\Support\CatalogosIntercambio;
@@ -68,9 +69,19 @@ Route::middleware('auth')->group(function () {
                 ->whereNumber('empresa')
                 ->name('qr.show');
 
-            // Intercambios (formulario en desarrollo)
-            Route::view('/intercambios/entrada', 'caseta.intercambios.entrada')
-                ->name('intercambios.entrada');
+            // Intercambios. El asistente (nuevo) funciona sin conexión: guarda el borrador en el
+            // dispositivo y el service worker envía las fotos y el intercambio al volver la señal.
+            // Historial, detalle, PDF y patio quedan en administración.
+            Route::get('/intercambios/nuevo', [IntercambioController::class, 'create'])
+                ->name('intercambios.nuevo');
+            Route::get('/intercambios/datos', [IntercambioController::class, 'datos'])
+                ->name('intercambios.datos');
+            Route::post('/intercambios', [IntercambioController::class, 'store'])
+                ->name('intercambios.store');
+            Route::post('/intercambios/fotos', [IntercambioController::class, 'subirFoto'])
+                ->name('intercambios.fotos.store');
+            Route::post('/intercambios/descartar', [IntercambioController::class, 'descartar'])
+                ->name('intercambios.descartar');
         });
 
     /*
@@ -87,20 +98,13 @@ Route::middleware('auth')->group(function () {
             Route::get('/entradas-salidas', [VisitaExternoController::class, 'historial'])
                 ->name('entradas-salidas.historial');
 
-            // Intercambios. El asistente (nuevo) funciona sin conexión: guarda el borrador en el
-            // dispositivo y el service worker envía las fotos y el intercambio al volver la señal.
+            // Intercambios (la captura está en caseta).
             Route::get('/intercambios/historial', [IntercambioController::class, 'index'])
                 ->name('intercambios.historial');
-            Route::get('/intercambios/nuevo', [IntercambioController::class, 'create'])
-                ->name('intercambios.nuevo');
-            Route::get('/intercambios/datos', [IntercambioController::class, 'datos'])
-                ->name('intercambios.datos');
-            Route::post('/intercambios', [IntercambioController::class, 'store'])
-                ->name('intercambios.store');
-            Route::post('/intercambios/fotos', [IntercambioController::class, 'subirFoto'])
-                ->name('intercambios.fotos.store');
-            Route::post('/intercambios/descartar', [IntercambioController::class, 'descartar'])
-                ->name('intercambios.descartar');
+            Route::get('/intercambios/historial/exportar', [ReporteIntercambioController::class, 'historial'])
+                ->name('intercambios.historial.exportar');
+            Route::get('/intercambios/patio/exportar', [ReporteIntercambioController::class, 'patio'])
+                ->name('intercambios.patio.exportar');
             Route::get('/intercambios/{intercambio}', [IntercambioController::class, 'show'])
                 ->whereNumber('intercambio')
                 ->name('intercambios.show');
@@ -151,7 +155,9 @@ Route::permanentRedirect('/hefesto/menu', '/caseta');
 Route::permanentRedirect('/hefesto/entrada', '/caseta/entrada');
 Route::permanentRedirect('/hefesto/salida', '/caseta/salida');
 Route::permanentRedirect('/hefesto/generar-qr', '/caseta/qr');
-Route::permanentRedirect('/hefesto/intercambio', '/caseta/intercambios/entrada');
+Route::permanentRedirect('/hefesto/intercambio', '/caseta/intercambios/nuevo');
+Route::permanentRedirect('/caseta/intercambios/entrada', '/caseta/intercambios/nuevo');
+Route::permanentRedirect('/admin/intercambios/nuevo', '/caseta/intercambios/nuevo');
 Route::permanentRedirect('/dashboard', '/admin');
 Route::permanentRedirect('/historial-entradas-salidas', '/admin/entradas-salidas');
 Route::permanentRedirect('/historial', '/admin/intercambios/historial');

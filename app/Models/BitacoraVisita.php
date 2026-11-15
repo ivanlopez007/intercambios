@@ -6,8 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Quién registró la entrada o la salida de una visita (base local).
- * `visita_id` apunta a la tabla `visitas` de la base externa.
+ * Quién registró la entrada o la salida de una visita.
+ * `visita_id` apunta a `visitas`; `user_id` a usuarios_caseta (modelo User).
  */
 class BitacoraVisita extends Model
 {

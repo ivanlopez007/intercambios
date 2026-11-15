@@ -1,5 +1,18 @@
 <?php
 
+/*
+ * ************************************************************
+ * Catálogos de intercambios
+ * Archivos necesarios:
+ *   CatalogoIntercambioController.php, CatalogosIntercambio.php, Caja.php, TipoCaja.php,
+ *   Tractocamion.php, Operador.php, InfoOperador.php, DocumentoOperador.php, TipoLicencia.php,
+ *   LineaTransportista.php, Cliente.php, Destino.php, SoloLectura.php,
+ *   catalogos/intercambio.blade.php
+ * Fecha: 29 sep 2026 - 07 oct 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
 namespace App\Http\Controllers;
 
 use App\Support\CatalogosIntercambio;

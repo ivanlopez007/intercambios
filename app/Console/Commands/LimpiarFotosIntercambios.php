@@ -1,5 +1,15 @@
 <?php
 
+/*
+ * ************************************************************
+ * Limpieza y depuración automática de fotos
+ * Archivos necesarios:
+ *   LimpiarFotosIntercambios.php, DepurarFotosIntercambios.php, routes/console.php
+ * Fecha: 09 nov 2026 - 11 nov 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
 namespace App\Console\Commands;
 
 use App\Models\BitacoraIntercambio;

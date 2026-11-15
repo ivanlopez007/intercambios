@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureUserHasRole;
-use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\VerificarAccesoCaseta;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -20,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: ['127.0.0.1', '::1']);
 
         $middleware->web(append: [
-            EnsureUserIsActive::class,
+            VerificarAccesoCaseta::class,
         ]);
 
         $middleware->alias([

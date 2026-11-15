@@ -63,8 +63,8 @@
             </a>
         </div>
 
-        <!-- Intercambios (en desarrollo) -->
-        <div class="bg-white rounded-2xl p-6 border-2 border-dashed border-slate-200 shadow-sm flex flex-col justify-between md:col-span-2 lg:col-span-1">
+        <!-- Intercambios de caja y tracto -->
+        <div class="bg-white rounded-2xl p-6 border-2 border-slate-200 shadow-sm hover:shadow-lg hover:border-blue-300 transition-all flex flex-col justify-between md:col-span-2 lg:col-span-1">
             <div>
                 <div class="flex items-center gap-4 mb-4">
                     <div class="w-16 h-16 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center text-3xl shrink-0 shadow-inner">
@@ -72,26 +72,20 @@
                     </div>
                     <div>
                         <h3 class="text-2xl font-extrabold text-slate-800">Intercambios</h3>
-                        <span class="inline-block mt-1 px-2.5 py-0.5 text-xs font-semibold bg-amber-50 text-amber-700 rounded-full border border-amber-200">
-                            En desarrollo
+                        <span class="inline-block mt-1 px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+                            Caja y Tractocamión
                         </span>
                     </div>
                 </div>
                 <p class="text-slate-600 text-sm mb-6 font-medium">
-                    Registro de intercambios de carga. Próximamente disponible.
+                    Entrada o salida de unidades con inspección, fotos y firmas. Funciona sin conexión.
                 </p>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-                <span class="flex items-center justify-center gap-2.5 py-3.5 px-4 bg-slate-100 text-slate-400 font-bold rounded-xl text-base cursor-not-allowed" aria-disabled="true">
-                    <i class="fa-solid fa-circle-arrow-down text-xl"></i>
-                    <span>Entrada</span>
-                </span>
-                <span class="flex items-center justify-center gap-2.5 py-3.5 px-4 bg-slate-100 text-slate-400 font-bold rounded-xl text-base cursor-not-allowed" aria-disabled="true">
-                    <i class="fa-solid fa-circle-arrow-up text-xl"></i>
-                    <span>Salida</span>
-                </span>
-            </div>
+            <a href="{{ route('caseta.intercambios.nuevo') }}" class="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl shadow-md transition-all text-base">
+                <i class="fa-solid fa-plus text-xl"></i>
+                <span>Nuevo Intercambio</span>
+            </a>
         </div>
 
     </div>

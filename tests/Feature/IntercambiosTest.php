@@ -16,8 +16,6 @@ use App\Models\TipoCaja;
 use App\Models\Tractocamion;
 use App\Models\User;
 use App\Services\PdfIntercambio;
-use Database\Seeders\DemoIntercambiosSeeder;
-use Database\Seeders\MasDemoIntercambiosSeeder;
 use Database\Seeders\PuntosInspeccionContratoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -26,12 +24,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use LogicException;
+use Tests\Concerns\CreaEmpleadosRh;
 use Tests\Concerns\UsaBaseExternaDePrueba;
 use Tests\TestCase;
 
 class IntercambiosTest extends TestCase
 {
-    use RefreshDatabase, UsaBaseExternaDePrueba;
+    use CreaEmpleadosRh, RefreshDatabase, UsaBaseExternaDePrueba;
 
     private User $admin;
 
@@ -53,7 +52,7 @@ class IntercambiosTest extends TestCase
 
         $this->admin = User::factory()->create(['rol' => 'admin', 'name' => 'Guardia Admin']);
 
-        $db = DB::connection('db_externa');
+        $db = DB::connection();
         $areaOperador = $db->table('areas')->insertGetId(['area' => 'OPERADOR']);
         $areaRh = $db->table('areas')->insertGetId(['area' => 'RH']);
         $licencia = $db->table('tipo_licencias')->insertGetId(['tipo_licencia' => 'Federal Tipo B']);
@@ -83,7 +82,7 @@ class IntercambiosTest extends TestCase
     {
         $this->assertSame(['HEF-1'], Operador::pluck('numero_empleado')->all());
 
-        $datos = $this->actingAs($this->admin)->getJson(route('admin.intercambios.datos'))->assertOk();
+        $datos = $this->actingAs($this->admin)->getJson(route('caseta.intercambios.datos'))->assertOk();
 
         $datos->assertJsonCount(1, 'operadores')
             ->assertJsonPath('operadores.0.nombre', 'JUAN PÉREZ LÓPEZ')
@@ -105,7 +104,7 @@ class IntercambiosTest extends TestCase
     {
         $datos = $this->datosValidos(cargada: true);
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)
             ->assertCreated()
             ->assertJsonPath('folio', 'INT-'.now()->year.'-000001');
 
@@ -123,7 +122,7 @@ class IntercambiosTest extends TestCase
         $this->assertSame(2, $intercambio->fotos()->where('tipo', 'sello')->count());
         Storage::disk('r2')->assertExists([$intercambio->firma_operador_path, $intercambio->firma_guardia_path]);
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $this->datosValidos())
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos())
             ->assertCreated()
             ->assertJsonPath('folio', 'INT-'.now()->year.'-000002');
     }
@@ -132,8 +131,8 @@ class IntercambiosTest extends TestCase
     {
         $datos = $this->datosValidos();
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)
             ->assertOk()
             ->assertJsonPath('duplicado', true)
             ->assertJsonPath('folio', 'INT-'.now()->year.'-000001');
@@ -144,11 +143,11 @@ class IntercambiosTest extends TestCase
     public function test_el_folio_reinicia_al_cambiar_de_anio(): void
     {
         $this->travelTo(now()->setDate(2026, 12, 31)->setTime(12, 0));
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $this->datosValidos())
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos())
             ->assertJsonPath('folio', 'INT-2026-000001');
 
         $this->travelTo(now()->setDate(2027, 1, 1)->setTime(12, 0));
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $this->datosValidos())
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos())
             ->assertJsonPath('folio', 'INT-2027-000001');
     }
 
@@ -165,7 +164,7 @@ class IntercambiosTest extends TestCase
         ]];
         $datos['destino_nuevo'] = 'Laredo';
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
 
         $intercambio = Intercambio::with(['caja.cliente', 'tractocamion.lineaTransportista', 'destino'])->sole();
         $this->assertSame('Costco', $intercambio->caja->cliente->nombre);
@@ -181,7 +180,7 @@ class IntercambiosTest extends TestCase
         $datos = $this->datosValidos();
         $datos['caja'] = ['nuevo' => ['cliente_id' => $this->cliente->id, 'numero_economico' => '5310', 'placa' => 'OTRA']];
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
 
         $this->assertSame(1, Caja::count());
         $this->assertSame($this->caja->id, Intercambio::sole()->caja_id);
@@ -189,8 +188,8 @@ class IntercambiosTest extends TestCase
 
     public function test_detecta_el_intercambio_relacionado(): void
     {
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $this->datosValidos(movimiento: 'salida'))->assertCreated();
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $this->datosValidos(movimiento: 'entrada'))->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos(movimiento: 'salida'))->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos(movimiento: 'entrada'))->assertCreated();
 
         [$salida, $entrada] = Intercambio::orderBy('id')->get();
         $this->assertNull($salida->intercambio_relacionado_id);
@@ -203,12 +202,12 @@ class IntercambiosTest extends TestCase
         $datos['numero_sello'] = null;
         $datos['fotos'] = [];
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['numero_sello']);
 
         $datos['numero_sello'] = 'S-1';
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['fotos']);
     }
@@ -218,7 +217,7 @@ class IntercambiosTest extends TestCase
         $datos = $this->datosValidos();
         $datos['numero_sello'] = 'NO-DEBE';
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
 
         $this->assertNull(Intercambio::sole()->numero_sello);
     }
@@ -230,7 +229,7 @@ class IntercambiosTest extends TestCase
         $datos['llantas'][0] = ['posicion' => 1, 'profundidad_32' => null, 'psi' => '', 'marca' => 'Michelin'];
         $datos['llantas'][1] = ['posicion' => 2, 'profundidad_32' => 7]; // sin PSI
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
 
         $llantas = Intercambio::sole()->llantas->keyBy('posicion');
         $this->assertCount(18, $llantas);
@@ -244,7 +243,7 @@ class IntercambiosTest extends TestCase
         $datos = $this->datosValidos();
         $datos['llantas'][0]['profundidad_32'] = 40;
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['llantas.0.profundidad_32']);
     }
@@ -267,9 +266,9 @@ class IntercambiosTest extends TestCase
         $datos['llantas'][0]['marca'] = 'Michelin';
         $datos['llantas'][0]['tipo'] = 'renovada';
         $datos['llantas'][17]['marca'] = 'Bridgestone';
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
 
-        $this->actingAs($this->admin)->getJson(route('admin.intercambios.datos'))
+        $this->actingAs($this->admin)->getJson(route('caseta.intercambios.datos'))
             ->assertJsonPath("llantas_tractos.{$this->tracto->id}.1.marca", 'Michelin')
             ->assertJsonPath("llantas_tractos.{$this->tracto->id}.1.tipo", 'renovada')
             ->assertJsonPath("llantas_cajas.{$this->caja->id}.18.marca", 'Bridgestone')
@@ -281,12 +280,12 @@ class IntercambiosTest extends TestCase
         $datos = $this->datosValidos();
         $datos['revision'][0]['resultado'] = RevisionPunto::NO_CUMPLE;
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['revision']);
 
         $datos['revision'][0]['observaciones'] = 'Llanta con bulto';
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
 
         $this->assertSame('Llanta con bulto', RevisionPunto::where('resultado', 'no_cumple')->sole()->observaciones);
     }
@@ -296,7 +295,7 @@ class IntercambiosTest extends TestCase
         $datos = $this->datosValidos();
         array_pop($datos['revision']);
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['revision']);
     }
@@ -306,7 +305,7 @@ class IntercambiosTest extends TestCase
         $datos = $this->datosValidos();
         $datos['fotos'][] = ['uuid' => (string) Str::uuid(), 'tipo' => 'problema', 'unidad' => 'caja'];
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertStatus(409);
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertStatus(409);
 
         $this->assertSame(0, Intercambio::count());
         $this->assertSame([], Storage::disk('r2')->allFiles("intercambios/{$datos['id_cliente']}/firmas"));
@@ -315,7 +314,7 @@ class IntercambiosTest extends TestCase
     public function test_no_se_suben_fotos_a_un_intercambio_ya_registrado(): void
     {
         $datos = $this->datosValidos();
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
 
         $this->subirFoto($datos['id_cliente'], 'problema')->assertForbidden();
     }
@@ -327,9 +326,9 @@ class IntercambiosTest extends TestCase
         $this->subirFoto($id, 'problema')->assertCreated();
         $this->assertCount(2, Storage::disk('r2')->allFiles("intercambios/{$id}"));
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.descartar'), ['intercambio' => $id])->assertOk();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.descartar'), ['intercambio' => $id])->assertOk();
         // Se puede repetir (la cola puede reenviarlo).
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.descartar'), ['intercambio' => $id])->assertOk();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.descartar'), ['intercambio' => $id])->assertOk();
 
         $this->assertSame([], Storage::disk('r2')->allFiles("intercambios/{$id}"));
     }
@@ -337,9 +336,9 @@ class IntercambiosTest extends TestCase
     public function test_descartar_conserva_las_fotos_de_un_intercambio_registrado(): void
     {
         $datos = $this->datosValidos(cargada: true);
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.descartar'), ['intercambio' => $datos['id_cliente']])->assertOk();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.descartar'), ['intercambio' => $datos['id_cliente']])->assertOk();
 
         Storage::disk('r2')->assertExists(FotoIntercambio::pluck('path')->all());
     }
@@ -347,7 +346,7 @@ class IntercambiosTest extends TestCase
     public function test_el_comando_borra_solo_fotos_huerfanas_viejas(): void
     {
         $registrado = $this->datosValidos(cargada: true);
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $registrado)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $registrado)->assertCreated();
 
         $huerfanoViejo = (string) Str::uuid();
         $this->subirFoto($huerfanoViejo, 'sello')->assertCreated();
@@ -364,44 +363,9 @@ class IntercambiosTest extends TestCase
         Storage::disk('r2')->assertExists(FotoIntercambio::pluck('path')->all());
     }
 
-    public function test_datos_de_demostracion_se_crean_y_se_borran(): void
-    {
-        Storage::fake('local');
-        $this->crearUsuarioRh('HEF-9', DB::connection('db_externa')->table('areas')->where('area', 'OPERADOR')->value('id'), 'PEDRO', 'SOLIS', 'RUIZ');
-        PuntoInspeccion::query()->insert(['seccion' => 'ctpat', 'nombre' => 'Remaches', 'tipo_respuesta' => 'ok_falla', 'orden' => 5]);
-        foreach (['Caja seca', 'Caja refrigerada', 'Plataforma', 'Cortina'] as $tipo) {
-            TipoCaja::create(['nombre' => $tipo]);
-        }
-
-        $this->seed(DemoIntercambiosSeeder::class);
-
-        $this->assertSame(8, Intercambio::count());
-        $this->assertSame('INT-'.now()->year.'-000008', Intercambio::orderByDesc('id')->value('folio'));
-        $this->assertSame(3, Intercambio::whereNotNull('intercambio_relacionado_id')->count());
-        $this->assertGreaterThan(0, FotoIntercambio::where('tipo', 'punto')->count());
-        Storage::disk('r2')->assertExists(FotoIntercambio::pluck('path')->all());
-
-        // Más datos sobre los anteriores; el borrado quita todo.
-        $this->seed(MasDemoIntercambiosSeeder::class);
-        $this->assertGreaterThan(20, Intercambio::count());
-        $this->assertSame(Intercambio::count(), Intercambio::distinct()->count('folio'));
-        $this->actingAs($this->admin)->get(route('admin.intercambios.patio'))
-            ->assertOk()
-            ->assertViewHas('resumen', fn ($r) => $r['total'] > 10);
-
-        $this->artisan('intercambios:borrar-demo')->assertSuccessful();
-
-        $this->assertSame(0, Intercambio::count());
-        $this->assertSame(0, FotoIntercambio::count());
-        $this->assertSame(['Walmart'], Cliente::pluck('nombre')->all()); // el del setUp se conserva
-        $this->assertSame([], Storage::disk('r2')->allFiles('intercambios'));
-        $this->assertNull(DB::connection('db_externa')->table('folios_intercambio')->value('ultimo'));
-        Storage::disk('local')->assertMissing(DemoIntercambiosSeeder::ARCHIVO);
-    }
-
     public function test_guarda_las_18_fotos_de_la_unidad_con_su_vista(): void
     {
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $this->datosValidos())->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos())->assertCreated();
 
         $recorrido = FotoIntercambio::where('tipo', 'recorrido')->get();
         $this->assertCount(18, $recorrido);
@@ -424,7 +388,7 @@ class IntercambiosTest extends TestCase
         $datos = $this->datosValidos();
         $datos['fotos'] = array_values(array_filter($datos['fotos'], fn ($f) => ($f['vista'] ?? null) !== 'caja_trasera'));
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['fotos'])
             ->assertJsonFragment(['Faltan fotos de la unidad: CAJA - Parte trasera (puertas).']);
@@ -443,7 +407,7 @@ class IntercambiosTest extends TestCase
             $datos = $this->datosValidos(cargada: $cargada, movimiento: $movimiento);
             $datos['caja'] = ['id' => $caja->id];
             $datos['fecha_hora'] = now()->subHours($haceHoras)->format('Y-m-d\TH:i');
-            $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
+            $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
         };
 
         $registrar('salida', $this->caja, 100);
@@ -463,7 +427,7 @@ class IntercambiosTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.intercambios.patio', ['dueno' => 'Walmart']))
             ->assertViewHas('unidades', fn ($u) => $u->count() === 1)
             ->assertSee('Ver toda la información')
-            ->assertSee('Salida anterior');
+            ->assertDontSee('Salida anterior');
 
         $this->actingAs($this->admin)->get(route('admin.intercambios.patio', ['dueno' => 'Otro dueño']))
             ->assertViewHas('unidades', fn ($u) => $u->isEmpty());
@@ -471,12 +435,12 @@ class IntercambiosTest extends TestCase
 
     public function test_depura_las_fotos_con_mas_de_cinco_anios_y_conserva_los_datos(): void
     {
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $this->datosValidos(cargada: true))->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos(cargada: true))->assertCreated();
         $viejo = Intercambio::sole();
         $rutas = $viejo->fotos()->pluck('path')->all();
         $viejo->update(['fecha_hora' => now()->subYears(5)->subDay()]);
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $this->datosValidos())->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos())->assertCreated();
         $reciente = Intercambio::latest('id')->first();
 
         $this->artisan('intercambios:depurar-fotos')->assertSuccessful();
@@ -515,12 +479,12 @@ class IntercambiosTest extends TestCase
 
         // Un daño con un resultado que no es de daño se rechaza.
         $mal = $marcar($this->datosValidos(), 'Frente', 'cumple');
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $mal)->assertUnprocessable();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $mal)->assertUnprocessable();
 
         $salida = $marcar($this->datosValidos(cargada: true, movimiento: 'salida'), 'Lado izquierdo', 'golpe');
         $salida = $marcar($salida, 'Luces', 'no_cumple', 'Calavera derecha rota');
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $salida)->assertCreated();
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $this->datosValidos())->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $salida)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos())->assertCreated();
 
         [$s, $e] = Intercambio::orderBy('id')->get();
         $this->assertSame('golpe', $s->revisionPuntos()->whereHas('punto', fn ($q) => $q->where('nombre', 'Lado izquierdo'))->value('resultado'));
@@ -561,7 +525,7 @@ class IntercambiosTest extends TestCase
         $this->subirFoto($datos['id_cliente'], 'recorrido', $reemplazada, 'trc_frontal')->assertCreated();
         $this->assertCount(19, Storage::disk('r2')->allFiles("intercambios/{$datos['id_cliente']}/recorrido"));
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
 
         $archivos = Storage::disk('r2')->allFiles("intercambios/{$datos['id_cliente']}");
         $this->assertCount(18 + 2, $archivos); // 18 de la unidad + 2 firmas
@@ -571,16 +535,49 @@ class IntercambiosTest extends TestCase
 
     public function test_dashboard_con_datos_reales(): void
     {
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $this->datosValidos(cargada: true))->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos(cargada: true))->assertCreated();
 
         $this->actingAs($this->admin)->get(route('admin.dashboard'))
             ->assertOk()
             ->assertViewHas('resumen', fn ($r) => $r['total'] === 1 && $r['entradas_hoy'] === 1)
             ->assertViewHas('porDia', fn ($d) => count($d) === 14 && end($d)['entradas'] === 1)
             ->assertViewHas('porDueno', fn ($d) => $d === [['nombre' => 'Walmart', 'cajas' => 1]])
-            ->assertViewHas('documentos', fn ($d) => $d->first()?->vencido === true) // la licencia del operador venció ayer
+            ->assertViewMissing('documentos') // sin avisos de licencias vencidas
             ->assertSee('Intercambios por día')
-            ->assertSee('JUAN PÉREZ LÓPEZ');
+            ->assertDontSee('Documentos de operadores');
+    }
+
+    public function test_guardia_empleado_de_rh_queda_con_su_id_de_caseta_y_su_nombre_de_rh(): void
+    {
+        $this->crearSistemas();
+        $empleado = $this->crearEmpleado('HEF-0000640', 'seguridad@industrialhefesto.com', nombre: 'Luis Fernando', apellidoP: 'Rivas', apellidoM: 'Rodriguez');
+        $guardia = $this->perfilVinculado($empleado, 'seguridad@industrialhefesto.com', 'caseta', 'Luis Fernando Rivas');
+
+        $datos = $this->datosValidos(); // sube las fotos como admin; se arma antes de la sesión del guardia
+        $this->comoVinculado($guardia)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
+
+        $intercambio = Intercambio::sole();
+        $this->assertSame($guardia->id, $intercambio->guardia_id, 'guardia_id es el id de usuarios_caseta, no el de users.');
+        $this->assertNotSame($empleado, $intercambio->guardia_id);
+        $this->assertSame('Luis Fernando Rivas Rodriguez', $intercambio->guardia_nombre);
+
+        $bitacora = BitacoraIntercambio::sole();
+        $this->assertSame($guardia->id, $bitacora->user_id);
+        $this->assertSame($intercambio->id, $bitacora->intercambio_id);
+        $this->assertSame('Luis Fernando Rivas Rodriguez', $bitacora->usuario_nombre);
+    }
+
+    public function test_si_falla_el_registro_no_queda_bitacora_ni_intercambio(): void
+    {
+        // La bitácora va en la misma transacción: si choca, el intercambio tampoco se guarda.
+        $datos = $this->datosValidos();
+        DB::statement('CREATE TRIGGER falla_bitacora BEFORE INSERT ON bitacora_intercambios BEGIN SELECT RAISE(ABORT, \'falla\'); END');
+
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertServerError();
+
+        $this->assertSame(0, Intercambio::count());
+        $this->assertSame(0, DB::table('llantas_intercambio')->count());
+        $this->assertSame(0, DB::table('folios_intercambio')->where('ultimo', '>', 0)->count());
     }
 
     public function test_respeta_al_guardia_que_capturo_sin_conexion(): void
@@ -589,7 +586,7 @@ class IntercambiosTest extends TestCase
         $datos = $this->datosValidos();
         $datos['registrado_por'] = Crypt::encryptString((string) $otro->id);
 
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $datos)->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $datos)->assertCreated();
 
         $this->assertSame('Turno Noche', Intercambio::sole()->guardia_nombre);
         $this->assertSame($otro->id, BitacoraIntercambio::sole()->user_id);
@@ -597,7 +594,7 @@ class IntercambiosTest extends TestCase
 
     public function test_listado_y_detalle(): void
     {
-        $this->actingAs($this->admin)->postJson(route('admin.intercambios.store'), $this->datosValidos(cargada: true))->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos(cargada: true))->assertCreated();
         $intercambio = Intercambio::sole();
 
         $this->actingAs($this->admin)->get(route('admin.intercambios.historial', ['caja' => '5310']))
@@ -611,15 +608,33 @@ class IntercambiosTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.intercambios.show', $intercambio))
             ->assertOk()
             ->assertSee('JUAN PÉREZ LÓPEZ')
-            ->assertSee('Vencido');
+            ->assertDontSee('Vencido')
+            ->assertDontSee('Intercambio relacionado');
 
         $foto = FotoIntercambio::first();
         $this->actingAs($this->admin)->get(route('admin.intercambios.foto', [$intercambio, $foto]))->assertRedirect();
     }
 
+    public function test_filtra_el_historial_por_numero_de_tracto(): void
+    {
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos())->assertCreated();
+        $folio = Intercambio::sole()->folio;
+        $historial = fn (array $filtros) => $this->actingAs($this->admin)->get(route('admin.intercambios.historial', $filtros))->assertOk();
+
+        $historial(['tracto' => 'T-1'])->assertSee($folio)->assertSee('No. económico del tracto');
+        $historial(['tracto' => 't-'])->assertSee($folio); // parcial y sin distinguir mayúsculas
+        $historial(['tracto' => 'T-9'])->assertDontSee($folio);
+        $historial(['tracto' => 'T-1', 'caja' => 'NO-EXISTE'])->assertDontSee($folio); // se combina con los demás filtros
+
+        // Si el tracto cambia de número en el catálogo, se encuentra por el número viejo (copiado) y por el nuevo.
+        $this->tracto->update(['numero_economico' => 'T-77']);
+        $historial(['tracto' => 'T-77'])->assertSee($folio);
+        $historial(['tracto' => 'T-1'])->assertSee($folio);
+    }
+
     public function test_el_asistente_y_los_catalogos_cargan(): void
     {
-        $this->actingAs($this->admin)->get(route('admin.intercambios.nuevo'))->assertOk();
+        $this->actingAs($this->admin)->get(route('caseta.intercambios.nuevo'))->assertOk();
 
         foreach (['clientes', 'tipos-caja', 'cajas', 'lineas-transportistas', 'tractocamiones', 'destinos', 'puntos-inspeccion'] as $catalogo) {
             $this->actingAs($this->admin)->get(route('admin.catalogos.index', $catalogo))->assertOk();
@@ -646,12 +661,93 @@ class IntercambiosTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_caseta_no_entra_a_intercambios_de_admin(): void
+    public function test_caseta_captura_intercambios_pero_no_entra_a_los_de_admin(): void
     {
         $caseta = User::factory()->create(['rol' => 'caseta']);
 
-        $this->actingAs($caseta)->get(route('admin.intercambios.nuevo'))->assertForbidden();
-        $this->actingAs($caseta)->postJson(route('admin.intercambios.store'), [])->assertForbidden();
+        $this->actingAs($caseta)->get(route('caseta.intercambios.nuevo'))->assertOk();
+        $this->actingAs($caseta)->getJson(route('caseta.intercambios.datos'))->assertOk();
+        $this->actingAs($caseta)->postJson(route('caseta.intercambios.store'), $this->datosValidos())->assertCreated();
+
+        $this->actingAs($caseta)->get(route('admin.intercambios.historial'))->assertForbidden();
+        $this->actingAs($caseta)->get(route('admin.intercambios.patio'))->assertForbidden();
+        $this->actingAs($caseta)->get(route('admin.catalogos.index', 'cajas'))->assertForbidden();
+        $this->actingAs($caseta)->get(route('admin.intercambios.historial.exportar', ['formato' => 'pdf']))->assertForbidden();
+        $this->actingAs($caseta)->get(route('admin.intercambios.patio.exportar', ['formato' => 'excel']))->assertForbidden();
+    }
+
+    public function test_historial_y_patio_muestran_el_boton_de_exportar(): void
+    {
+        $this->actingAs($this->admin)->get(route('admin.intercambios.historial'))
+            ->assertOk()->assertSee(route('admin.intercambios.historial.exportar'), false);
+        $this->actingAs($this->admin)->get(route('admin.intercambios.patio'))
+            ->assertOk()->assertSee(route('admin.intercambios.patio.exportar'), false);
+    }
+
+    public function test_exporta_el_historial_a_pdf_y_a_excel(): void
+    {
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos())->assertCreated();
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos(movimiento: 'salida'))->assertCreated();
+        [$entrada, $salida] = [Intercambio::where('tipo_movimiento', 'entrada')->sole(), Intercambio::where('tipo_movimiento', 'salida')->sole()];
+
+        $this->actingAs($this->admin)->get(route('admin.intercambios.historial.exportar', ['formato' => 'pdf']))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
+
+        // Personalizado: con el filtro de pantalla y solo las columnas elegidas.
+        $filas = $this->leerExcel($this->actingAs($this->admin)->get(route('admin.intercambios.historial.exportar', [
+            'formato' => 'excel', 'movimiento' => 'salida', 'columnas' => ['folio', 'movimiento', 'caja'],
+        ]))->assertOk());
+        $this->assertSame([['Folio', 'Movimiento', 'Caja'], [$salida->folio, 'Salida', '5310']], $filas);
+
+        // General: ignora los filtros y trae todas las columnas.
+        $filas = $this->leerExcel($this->actingAs($this->admin)->get(route('admin.intercambios.historial.exportar', [
+            'formato' => 'excel', 'movimiento' => 'salida', 'alcance' => 'todo',
+        ]))->assertOk());
+        $this->assertCount(3, $filas);
+        $this->assertCount(count(\App\Services\ReporteIntercambios::columnasHistorial()), $filas[0]);
+        $this->assertEqualsCanonicalizing([$entrada->folio, $salida->folio], [$filas[1][0], $filas[2][0]]);
+
+        $this->actingAs($this->admin)->get(route('admin.intercambios.historial.exportar', ['formato' => 'word']))->assertSessionHasErrors('formato');
+    }
+
+    public function test_exporta_el_patio_a_pdf_y_a_excel(): void
+    {
+        $this->actingAs($this->admin)->postJson(route('caseta.intercambios.store'), $this->datosValidos(cargada: true))->assertCreated();
+        $folio = Intercambio::sole()->folio;
+
+        $this->actingAs($this->admin)->get(route('admin.intercambios.patio.exportar', ['formato' => 'pdf', 'alcance' => 'todo']))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
+
+        $filas = $this->leerExcel($this->actingAs($this->admin)->get(route('admin.intercambios.patio.exportar', [
+            'formato' => 'excel', 'filtro' => 'cargadas', 'columnas' => ['folio', 'caja', 'carga', 'alerta'],
+        ]))->assertOk());
+        $this->assertSame([['Folio de entrada', 'Caja', 'Carga', 'Con alerta'], [$folio, '5310', 'Cargada', 'No']], $filas);
+
+        $filas = $this->leerExcel($this->actingAs($this->admin)->get(route('admin.intercambios.patio.exportar', [
+            'formato' => 'excel', 'filtro' => 'vacias', 'columnas' => ['folio'],
+        ]))->assertOk());
+        $this->assertSame([['Folio de entrada']], $filas);
+    }
+
+    /** Filas (como texto) del Excel de una respuesta. */
+    private function leerExcel($respuesta): array
+    {
+        $respuesta->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $lector = new \OpenSpout\Reader\XLSX\Reader;
+        $lector->open($respuesta->baseResponse->getFile()->getPathname());
+
+        $filas = [];
+        foreach ($lector->getSheetIterator() as $hoja) {
+            foreach ($hoja->getRowIterator() as $fila) {
+                $filas[] = array_map(fn ($v) => $v instanceof \DateTimeInterface ? $v->format('Y-m-d H:i') : (string) $v, $fila->toArray());
+            }
+            break;
+        }
+        $lector->close();
+
+        return $filas;
     }
 
     /**
@@ -700,7 +796,7 @@ class IntercambiosTest extends TestCase
 
     private function subirFoto(string $intercambio, string $tipo, ?string $uuid = null, ?string $vista = null)
     {
-        return $this->actingAs($this->admin)->post(route('admin.intercambios.fotos.store'), array_filter([
+        return $this->actingAs($this->admin)->post(route('caseta.intercambios.fotos.store'), array_filter([
             'intercambio' => $intercambio,
             'uuid' => $uuid ?? (string) Str::uuid(),
             'tipo' => $tipo,
@@ -711,7 +807,7 @@ class IntercambiosTest extends TestCase
 
     private function crearUsuarioRh(string $numero, int $area, string $nombre, string $paterno, string $materno, bool $eliminado = false): int
     {
-        $db = DB::connection('db_externa');
+        $db = DB::connection();
         $id = $db->table('users')->insertGetId([
             'numero_empleado' => $numero, 'email' => strtolower($numero).'@ejemplo.com', 'password' => 'x',
             'area_id' => $area, 'deleted_at' => $eliminado ? now() : null,

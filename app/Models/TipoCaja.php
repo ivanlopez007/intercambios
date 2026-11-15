@@ -8,8 +8,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TipoCaja extends Model
 {
-    protected $connection = 'db_externa';
-
     protected $table = 'tipos_caja';
 
     protected $fillable = ['nombre', 'activo'];

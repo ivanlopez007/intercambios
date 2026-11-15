@@ -3,27 +3,19 @@
 namespace Tests\Concerns;
 
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Sustituye la conexión `db_externa` por una base SQLite en memoria durante la prueba,
- * con las tablas mínimas que usa la aplicación. Nunca toca la base externa real.
+ * Tablas de visitas e intercambios para las pruebas, en la misma base SQLite en memoria que
+ * usa la app durante las pruebas (una sola base, igual que en producción). Las de RH y Caseta
+ * (users, info_usuarios, sistemas, usuarios_caseta, bitácoras) vienen del esquema de
+ * tests/database/migrations. Nunca toca la base real (tests/TestCase.php lo impide).
  */
 trait UsaBaseExternaDePrueba
 {
     protected function prepararBaseExterna(): void
     {
-        config(['database.connections.db_externa' => [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-            'foreign_key_constraints' => true,
-        ]]);
-
-        DB::purge('db_externa');
-
-        Schema::connection('db_externa')->create('empresas', function (Blueprint $table) {
+        Schema::create('empresas', function (Blueprint $table) {
             $table->id();
             $table->string('nombre');
             $table->string('razon_social');
@@ -33,7 +25,7 @@ trait UsaBaseExternaDePrueba
             $table->timestamps();
         });
 
-        Schema::connection('db_externa')->create('visitas', function (Blueprint $table) {
+        Schema::create('visitas', function (Blueprint $table) {
             $table->id();
             $table->string('nombre_persona');
             $table->string('empresa');
@@ -45,13 +37,13 @@ trait UsaBaseExternaDePrueba
             $table->timestamps();
         });
 
-        Schema::connection('db_externa')->create('requerimiento_foto_visitas', function (Blueprint $table) {
+        Schema::create('requerimiento_foto_visitas', function (Blueprint $table) {
             $table->id();
             $table->string('parte');
             $table->timestamps();
         });
 
-        Schema::connection('db_externa')->create('foto_visitas', function (Blueprint $table) {
+        Schema::create('foto_visitas', function (Blueprint $table) {
             $table->id();
             $table->text('foto_url');
             $table->foreignId('requerimiento_foto_visita_id')->constrained('requerimiento_foto_visitas')->cascadeOnDelete();
@@ -61,43 +53,12 @@ trait UsaBaseExternaDePrueba
     }
 
     /**
-     * Tablas mínimas de RH (operadores) y las del módulo de intercambios, copiadas de las
-     * migraciones de la app de RH. Llamar después de prepararBaseExterna().
+     * Tablas del módulo de intercambios, copiadas de las migraciones de la app de RH.
+     * Llamar después de prepararBaseExterna().
      */
     protected function prepararTablasIntercambio(): void
     {
-        $schema = Schema::connection('db_externa');
-
-        $schema->create('areas', function (Blueprint $table) {
-            $table->id();
-            $table->string('area');
-            $table->softDeletes();
-            $table->timestamps();
-        });
-
-        $schema->create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('numero_empleado')->unique();
-            $table->string('email');
-            $table->string('password');
-            $table->unsignedBigInteger('rol_id')->default(1);
-            $table->foreignId('area_id')->constrained('areas');
-            $table->softDeletes();
-            $table->rememberToken();
-            $table->timestamps();
-        });
-
-        $schema->create('info_usuarios', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('usuario_id')->constrained('users')->cascadeOnDelete();
-            $table->string('nombre');
-            $table->string('apellido_p');
-            $table->string('apellido_m');
-            $table->string('rfc')->default('cifrado');
-            $table->string('curp')->default('cifrado');
-            $table->string('telefono')->default('');
-            $table->timestamps();
-        });
+        $schema = Schema::getFacadeRoot();
 
         $schema->create('tipo_licencias', function (Blueprint $table) {
             $table->id();

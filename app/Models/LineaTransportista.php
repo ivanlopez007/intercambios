@@ -9,8 +9,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /** Línea de los tractocamiones de permisionarios. */
 class LineaTransportista extends Model
 {
-    protected $connection = 'db_externa';
-
     protected $table = 'lineas_transportistas';
 
     protected $fillable = ['nombre', 'rfc', 'activo'];

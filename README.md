@@ -14,25 +14,29 @@ Aplicación Laravel para el control de acceso en caseta: entradas y salidas de v
 - Menús laterales: [config/menus.php](config/menus.php), dibujados con el componente
   [`<x-menu-lateral>`](resources/views/components/menu-lateral.blade.php).
 - Roles: middleware `rol:` ([EnsureUserHasRole](app/Http/Middleware/EnsureUserHasRole.php)).
-  Los usuarios desactivados pierden la sesión en su siguiente petición
-  ([EnsureUserIsActive](app/Http/Middleware/EnsureUserIsActive.php)).
+  Cada petición se revalida ([VerificarAccesoCaseta](app/Http/Middleware/VerificarAccesoCaseta.php)):
+  perfil desactivado, o empleado dado de baja en RH, sin "Intercambios" o con la contraseña cambiada en RH,
+  pierde la sesión en su siguiente petición.
 - Las URL anteriores (`/hefesto/...`, `/dashboard`, etc.) redirigen a las nuevas.
 
-## Bases de datos
+## Base de datos (una sola, compartida con RH)
 
-- **Local** (`DB_*`): solo la tabla `users` de esta aplicación (login y roles).
-- **Externa** (`DB_EXTERNA_*`, conexión `db_externa`): empresas, visitas y demás tablas
-  compartidas. **Esta aplicación no ejecuta migraciones sobre ella**; su esquema se administra
-  por separado. En los tests se sustituye por SQLite en memoria
-  ([tests/Concerns/UsaBaseExternaDePrueba.php](tests/Concerns/UsaBaseExternaDePrueba.php)).
+- La app usa **una sola base**: la de la app de RH (`DB_DATABASE=laravel`). Ahí están también sus
+  tablas propias: `usuarios_caseta` (perfiles de acceso), `bitacora_visitas` y `bitacora_intercambios`.
+- **El esquema lo administra la app de RH. Esta app no tiene migraciones y nunca debe correr
+  `migrate`, `migrate:fresh`, `migrate:refresh`, `migrate:reset`, `migrate:rollback` ni `db:wipe`**:
+  la tabla `migrations` es la de RH.
+- No escribe en las tablas de RH (`users`, `info_usuarios`, `sistemas`, `sistema_usuario`); solo las lee.
+- Para no chocar con RH en la misma base: `CACHE_PREFIX=caseta-cache-`, `SESSION_COOKIE=caseta_session`,
+  `DB_QUEUE=caseta` y `BCRYPT_ROUNDS=12` (los hashes de RH son bcrypt cost 12).
+- Las pruebas corren solo con SQLite en memoria; [tests/TestCase.php](tests/TestCase.php) las detiene si la
+  configuración apunta a otra base. Su esquema está en [tests/database/migrations](tests/database/migrations).
 
 ## Instalación y despliegue
 
 ```bash
 composer install --no-dev --optimize-autoloader
 npm ci && npm run build        # genera public/build (Tailwind, Alpine, FontAwesome, escáner QR)
-php artisan migrate --force
-php artisan db:seed --force
 php artisan config:cache && php artisan route:cache && php artisan view:cache
 ```
 
@@ -41,19 +45,20 @@ librerías desde CDN, sino desde `public/build`.
 
 ## Acceso del personal
 
-Las pantallas y operaciones de la aplicación requieren iniciar sesión. No hay registro público.
-Antes del primer despliegue, configura `ADMIN_NAME`, `ADMIN_EMAIL` y `ADMIN_PASSWORD` en el
-entorno privado; usa una contraseña única y fuerte. El seeder crea o actualiza esa cuenta
-administradora. No guardes las credenciales en el repositorio.
+Las pantallas y operaciones de la aplicación requieren iniciar sesión con **correo + contraseña**.
+No hay registro público. La lógica está en [AccesoCaseta](app/Services/AccesoCaseta.php):
 
-Para crear cuentas de prueba locales (un administrador y un usuario de caseta), ejecuta:
+- **Empleados de RH**: usan la **misma contraseña de la app de RH** (allá entran con su número de
+  empleado). Necesitan correo real en RH y la casilla **Intercambios** marcada en RH; su perfil en
+  Caseta se crea solo en su primer login, con rol `caseta`. En Caseta solo se les cambia rol y estado;
+  nombre, correo y contraseña se administran desde RH. Los correos de relleno (`@empresa.local`,
+  `@example.com`, `notiene…@`) nunca sirven para entrar.
+- **Cuentas genéricas** (no son personas, p. ej. `caseta@…`): tienen su propia contraseña y se
+  administran completas en Admin → Usuarios. Su correo no puede ser el de un empleado activo de RH.
 
-```bash
-php artisan db:seed --class=DemoUsersSeeder
-```
-
-El seeder solo funciona en los entornos `local` y `testing`. Genera una contraseña aleatoria
-para cada cuenta nueva y la muestra una sola vez en la consola. No uses estas cuentas en producción.
+`php artisan db:seed --class=AdminUserSeeder` crea o actualiza una cuenta **genérica** de
+administrador con `ADMIN_NAME`, `ADMIN_EMAIL` y `ADMIN_PASSWORD` (se niega si el correo es de un
+empleado de RH). No guardes las credenciales en el repositorio.
 
 ## Firmas (Cloudflare R2)
 
@@ -64,9 +69,10 @@ registro en la base de datos, la firma recién subida se borra.
 ## Intercambios
 
 - Las tablas (`intercambios`, `cajas`, `tractocamiones`, `puntos_inspeccion`, etc.) están en la base
-  de RH (`db_externa`) y se crean con las migraciones de la app de RH. Aquí solo están los modelos.
+  de RH y se crean con las migraciones de la app de RH. Aquí solo están los modelos.
+  `intercambios.guardia_id` y las bitácoras guardan el id de `usuarios_caseta`, nunca el de `users`.
   Los operadores (usuarios activos de las áreas `OPERADORES` y `PERMISIONARIOS`, configurable con `INTERCAMBIOS_AREAS_OPERADORES`) son de solo lectura.
-- Asistente: `/admin/intercambios/nuevo`. Funciona sin conexión:
+- Asistente: `/caseta/intercambios/nuevo` (caseta y admin). Funciona sin conexión:
   - catálogos y operadores se descargan a IndexedDB (`hefesto-intercambios`) cuando hay señal;
   - el borrador y sus fotos se guardan en el dispositivo en cada cambio;
   - al completarlo pasa a la cola de envío: el service worker sube cada foto y después el

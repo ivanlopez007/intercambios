@@ -10,8 +10,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /** Remolque. El número económico es único por dueño (cliente_id + numero_economico). */
 class Caja extends Model
 {
-    protected $connection = 'db_externa';
-
     protected $table = 'cajas';
 
     protected $fillable = [

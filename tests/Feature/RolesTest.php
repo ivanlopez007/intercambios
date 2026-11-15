@@ -36,7 +36,7 @@ class RolesTest extends TestCase
             ->post('/admin/empresas', ['nombre' => 'Intrusa'])
             ->assertForbidden();
 
-        $this->assertDatabaseMissing('empresas', ['nombre' => 'Intrusa'], 'db_externa');
+        $this->assertDatabaseMissing('empresas', ['nombre' => 'Intrusa']);
     }
 
     public function test_caseta_user_can_open_caseta_pages(): void

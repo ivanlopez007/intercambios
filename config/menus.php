@@ -1,6 +1,19 @@
 <?php
 
 /*
+ * ************************************************************
+ * Estructura base, layouts y menús
+ * Archivos necesarios:
+ *   config/menus.php, resources/views/admin/layout/layout.blade.php,
+ *   resources/views/caseta/layout/layout.blade.php,
+ *   resources/views/components/menu-lateral.blade.php, resources/css/app.css,
+ *   resources/js/app.js
+ * Fecha: 01 jul 2026 - 11 jul 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
+/*
 |--------------------------------------------------------------------------
 | Menús laterales
 |--------------------------------------------------------------------------
@@ -28,6 +41,12 @@ return [
             ],
         ],
         [
+            'title' => 'Intercambios',
+            'icon' => 'fa-solid fa-boxes-stacked',
+            'route' => 'caseta.intercambios.nuevo',
+            'active' => 'caseta.intercambios.*',
+        ],
+        [
             'title' => 'QR para Empresas',
             'icon' => 'fa-solid fa-qrcode',
             'route' => 'caseta.qr',
@@ -46,7 +65,7 @@ return [
             'title' => 'Intercambios',
             'icon' => 'fa-solid fa-rotate',
             'submenu' => [
-                ['title' => 'Nuevo intercambio', 'route' => 'admin.intercambios.nuevo', 'active' => 'admin.intercambios.nuevo'],
+                ['title' => 'Nuevo intercambio', 'route' => 'caseta.intercambios.nuevo', 'active' => 'caseta.intercambios.nuevo'],
                 ['title' => 'Historial de Intercambios', 'route' => 'admin.intercambios.historial', 'active' => ['admin.intercambios.historial', 'admin.intercambios.show']],
                 ['title' => 'Patio', 'route' => 'admin.intercambios.patio', 'active' => 'admin.intercambios.patio'],
             ],

@@ -1,3 +1,13 @@
+{{--
+    ************************************************************
+    Historial y detalle de intercambios
+    Archivos necesarios:
+      IntercambioController.php (index, show, foto, pdf, firma),
+      intercambio/historial.blade.php, intercambio/detalle.blade.php
+    Fecha: 26 oct 2026 - 31 oct 2026
+    Realizado por: Ivan Lopez
+    ************************************************************
+--}}
 @extends('admin.layout.layout')
 
 @section('title', 'Historial de Intercambios')
@@ -20,13 +30,20 @@ $estilosStatus = [
             <h2 class="text-xl font-bold text-slate-800">Intercambios</h2>
             <p class="text-xs text-gray-500">Estado de cajas y tractocamiones al entrar o salir del patio.</p>
         </div>
-        <a href="{{ route('admin.intercambios.nuevo') }}"
-            class="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition shadow-sm flex items-center justify-center gap-2">
-            <i class="fa-solid fa-plus"></i> Nuevo intercambio
-        </a>
+        <div class="flex flex-col sm:flex-row gap-2">
+            @include('admin.intercambio.exportar', [
+                'accion' => route('admin.intercambios.historial.exportar'),
+                'columnas' => \App\Services\ReporteIntercambios::columnasHistorial(),
+                'filtrosActuales' => request()->only(\App\Models\Intercambio::FILTROS),
+            ])
+            <a href="{{ route('caseta.intercambios.nuevo') }}"
+                class="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition shadow-sm flex items-center justify-center gap-2">
+                <i class="fa-solid fa-plus"></i> Nuevo intercambio
+            </a>
+        </div>
     </div>
 
-    <form method="GET" action="{{ route('admin.intercambios.historial') }}" x-data="{ abierto: @js(request()->hasAny(['folio', 'caja', 'cliente', 'movimiento', 'status', 'desde', 'hasta'])) }"
+    <form method="GET" action="{{ route('admin.intercambios.historial') }}" x-data="{ abierto: @js(request()->hasAny(\App\Models\Intercambio::FILTROS)) }"
         class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-200">
         <button type="button" @click="abierto = !abierto" class="w-full flex items-center justify-between text-sm font-bold text-slate-700 md:hidden">
             <span><i class="fa-solid fa-filter"></i> Filtros</span>
@@ -41,6 +58,10 @@ $estilosStatus = [
             <div>
                 <label for="f-caja" class="block text-xs font-semibold text-gray-600 mb-1">No. económico de la caja</label>
                 <input id="f-caja" type="text" name="caja" value="{{ request('caja') }}" class="{{ $filtro }}">
+            </div>
+            <div>
+                <label for="f-tracto" class="block text-xs font-semibold text-gray-600 mb-1">No. económico del tracto</label>
+                <input id="f-tracto" type="text" name="tracto" value="{{ request('tracto') }}" class="{{ $filtro }}">
             </div>
             <div>
                 <label for="f-cliente" class="block text-xs font-semibold text-gray-600 mb-1">Cliente</label>

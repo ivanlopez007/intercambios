@@ -1,7 +1,24 @@
 <?php
 
+/*
+ * ************************************************************
+ * Captura de intercambios (asistente: checklist, llantas, fotos, firmas)
+ * Archivos necesarios:
+ *   IntercambioController.php, RegistrarIntercambio.php, GuardarIntercambioRequest.php,
+ *   Intercambio.php, BitacoraIntercambio.php, FotoIntercambio.php, LlantaIntercambio.php,
+ *   PuntoInspeccion.php, RevisionPunto.php, intercambios/nuevo.blade.php,
+ *   partials/checklist.blade.php, partials/diagrama-llantas.blade.php,
+ *   partials/fotos.blade.php, partials/punto.blade.php, partials/estado-subida.blade.php,
+ *   intercambio.js, intercambio-almacen.js, config/intercambios.php,
+ *   create_bitacora_intercambios_table.php
+ * Fecha: 08 oct 2026 - 19 oct 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
 namespace App\Services;
 
+use App\Models\BitacoraIntercambio;
 use App\Models\Caja;
 use App\Models\Cliente;
 use App\Models\Destino;
@@ -20,9 +37,9 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Crea un intercambio completado con todo su detalle en una sola transacción sobre la base de RH:
- * folio, catálogos dados de alta en el asistente, llantas, revisión, fotos, firmas y la copia de
- * datos del operador, la caja y el tracto.
+ * Crea un intercambio completado con todo su detalle en una sola transacción: folio, catálogos
+ * dados de alta en el asistente, llantas, revisión, fotos, firmas, la copia de datos del
+ * operador, la caja y el tracto, y su fila en bitacora_intercambios.
  *
  * Las fotos ya están en R2 (se suben una por una antes); aquí solo se enlazan. Las firmas se
  * suben aquí y se borran si la transacción falla.
@@ -61,7 +78,7 @@ class RegistrarIntercambio
                 $firmas[$quien] = $this->guardarFirma($idCliente, $quien, $datos["firma_{$quien}"]);
             }
 
-            $intercambio = DB::connection('db_externa')->transaction(
+            $intercambio = DB::transaction(
                 fn () => $this->crear($datos, $guardia, $rutasFotos, $firmas)
             );
         } catch (Throwable $e) {
@@ -122,7 +139,7 @@ class RegistrarIntercambio
             'fecha_hora' => $fecha,
             'operador_id' => $operador->id,
             'guardia_id' => $guardia->id,
-            'guardia_nombre' => $guardia->name,
+            'guardia_nombre' => $guardia->nombre_mostrado,
             'caja_id' => $caja->id,
             'intercambio_relacionado_id' => $relacionado,
             'tractocamion_id' => $tracto->id,
@@ -192,6 +209,15 @@ class RegistrarIntercambio
             ]);
         }
 
+        // Quién lo registró y el UUID del dispositivo (evita duplicar reenvíos sin conexión).
+        // Va en la misma transacción: no puede quedar un intercambio sin bitácora ni al revés.
+        BitacoraIntercambio::create([
+            'id_cliente' => $datos['id_cliente'],
+            'intercambio_id' => $intercambio->id,
+            'user_id' => $guardia->id,
+            'usuario_nombre' => $guardia->nombre_mostrado,
+        ]);
+
         return $intercambio;
     }
 
@@ -201,7 +227,7 @@ class RegistrarIntercambio
      */
     private function siguienteFolio(int $anio): string
     {
-        $tabla = fn () => DB::connection('db_externa')->table('folios_intercambio');
+        $tabla = fn () => DB::table('folios_intercambio');
 
         $tabla()->insertOrIgnore(['anio' => $anio, 'ultimo' => 0, 'created_at' => now(), 'updated_at' => now()]);
         $fila = $tabla()->where('anio', $anio)->lockForUpdate()->first();

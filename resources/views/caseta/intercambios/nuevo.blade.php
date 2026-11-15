@@ -1,12 +1,25 @@
-@extends('admin.layout.layout')
+{{--
+    ************************************************************
+    Captura de intercambios (asistente: checklist, llantas, fotos, firmas)
+    Archivos necesarios:
+      IntercambioController.php, RegistrarIntercambio.php, GuardarIntercambioRequest.php,
+      Intercambio.php, BitacoraIntercambio.php, FotoIntercambio.php, LlantaIntercambio.php,
+      PuntoInspeccion.php, RevisionPunto.php, intercambios/nuevo.blade.php,
+      partials/checklist.blade.php, partials/diagrama-llantas.blade.php,
+      partials/fotos.blade.php, partials/punto.blade.php, partials/estado-subida.blade.php,
+      intercambio.js, intercambio-almacen.js, config/intercambios.php,
+      create_bitacora_intercambios_table.php
+    Fecha: 08 oct 2026 - 19 oct 2026
+    Realizado por: Ivan Lopez
+    ************************************************************
+--}}
+@extends('caseta.layout.layout')
 
 @section('title', 'Nuevo intercambio')
 @section('page-title', 'Intercambio de caja y tracto')
 
+{{-- El layout de caseta ya trae el manifest y la meta registrado-por (quien captura). --}}
 @push('vite')
-{{-- Identifica a quien captura, aunque el intercambio se envíe después con otra sesión. --}}
-<meta name="registrado-por" content="{{ \Illuminate\Support\Facades\Crypt::encryptString((string) auth()->id()) }}">
-<link rel="manifest" href="/manifest.json">
 @vite(['resources/js/intercambio.js'])
 @endpush
 
@@ -133,9 +146,11 @@ $coloresLlanta = "{
             </template>
         </div>
 
+        @if (auth()->user()->rol === 'admin')
         <a href="{{ route('admin.intercambios.historial') }}" class="block text-center text-sm font-bold text-slate-600 py-2">
             Ver historial de intercambios <i class="fa-solid fa-arrow-right"></i>
         </a>
+        @endif
     </div>
 
     {{-- ======================= ASISTENTE ======================= --}}
@@ -222,31 +237,10 @@ $coloresLlanta = "{
                                         <button type="button" @click="borrador.operador_id = null" class="text-sm font-bold text-blue-700 shrink-0">Cambiar</button>
                                     </div>
 
-                                    <div class="grid sm:grid-cols-3 gap-2 text-sm">
-                                        <div class="rounded-xl bg-slate-50 border border-slate-200 p-3">
-                                            <p class="text-xs text-slate-500">Licencia</p>
-                                            <p class="font-bold text-slate-900" x-text="operador.licencia || 'Sin licencia registrada'"></p>
-                                            <p class="text-xs text-slate-500" x-text="operador.tipo_licencia || ''"></p>
-                                        </div>
-                                        <template x-for="[titulo, fecha] in [['Vence licencia', operador.licencia_vence], ['Vence apto médico', operador.apto_vence]]" :key="titulo">
-                                            <div class="rounded-xl border p-3"
-                                                :class="{
-                                                    'bg-rose-50 border-rose-300': estadoVencimiento(fecha) === 'vencido',
-                                                    'bg-amber-50 border-amber-300': estadoVencimiento(fecha) === 'por_vencer',
-                                                    'bg-emerald-50 border-emerald-300': estadoVencimiento(fecha) === 'vigente',
-                                                    'bg-slate-50 border-slate-200': estadoVencimiento(fecha) === 'sin_dato',
-                                                }">
-                                                <p class="text-xs text-slate-500" x-text="titulo"></p>
-                                                <p class="font-bold text-slate-900" x-text="fecha ? fechaCorta(fecha) : 'Sin dato'"></p>
-                                                <p class="text-xs font-bold"
-                                                    :class="{ 'text-rose-700': estadoVencimiento(fecha) === 'vencido', 'text-amber-700': estadoVencimiento(fecha) === 'por_vencer', 'text-emerald-700': estadoVencimiento(fecha) === 'vigente' }"
-                                                    x-text="{ vencido: 'Vencido', por_vencer: 'Por vencer', vigente: 'Vigente', sin_dato: '' }[estadoVencimiento(fecha)]"></p>
-                                            </div>
-                                        </template>
-                                    </div>
-
-                                    <div x-show="operadorConVencidos" class="rounded-xl bg-rose-100 border border-rose-200 text-rose-900 text-sm font-semibold p-3">
-                                        <i class="fa-solid fa-triangle-exclamation"></i> El operador tiene documentos vencidos. Se puede continuar, pero quedará registrado.
+                                    <div class="rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm">
+                                        <p class="text-xs text-slate-500">Licencia</p>
+                                        <p class="font-bold text-slate-900" x-text="operador.licencia || 'Sin licencia registrada'"></p>
+                                        <p class="text-xs text-slate-500" x-text="operador.tipo_licencia || ''"></p>
                                     </div>
                                 </div>
                             </template>
@@ -550,7 +544,7 @@ $coloresLlanta = "{
                         <div>
                             <span class="{{ $etiqueta }}">Fotos del sello * <span class="font-normal text-slate-500" x-text="'(1 a ' + (config.max_fotos_sello ?? 2) + ')'"></span></span>
                             <p class="text-xs text-slate-500 mb-2">Que se vea claramente el código del sello y que está colocado.</p>
-                            @include('admin.intercambio.partials.fotos', [
+                            @include('caseta.intercambios.partials.fotos', [
                                 'filtro' => "{ tipo: 'sello' }",
                                 'meta' => "{ tipo: 'sello' }",
                                 'mostrar' => "fotosDe({ tipo: 'sello' }).length < (config.max_fotos_sello ?? 2)",
@@ -573,7 +567,7 @@ $coloresLlanta = "{
                             </div>
 
                             <div class="mx-auto w-full max-w-[17rem]">
-                                @include('admin.intercambio.partials.diagrama-llantas')
+                                @include('caseta.intercambios.partials.diagrama-llantas')
                             </div>
 
                             <div class="flex flex-wrap justify-center gap-3 text-[11px] font-semibold text-slate-600 pt-1">
@@ -593,12 +587,12 @@ $coloresLlanta = "{
                 {{-- ---------- PASO 7: REVISIÓN C-TPAT ---------- --}}
                 <template x-if="borrador.paso === 7">
                     <div class="space-y-6">
-                        @include('admin.intercambio.partials.checklist', ['seccion' => 'ctpat', 'titulo' => 'Revisión C-TPAT', 'descripcion' => 'Marca "No cumple" solo si encuentras algo; se pedirán observaciones.', 'columnas' => true])
-                        @include('admin.intercambio.partials.checklist', ['seccion' => 'olores', 'titulo' => 'Olores'])
-                        @include('admin.intercambio.partials.checklist', ['seccion' => 'residuos', 'titulo' => 'Residuos'])
+                        @include('caseta.intercambios.partials.checklist', ['seccion' => 'ctpat', 'titulo' => 'Revisión C-TPAT', 'descripcion' => 'Marca "No cumple" solo si encuentras algo; se pedirán observaciones.', 'columnas' => true])
+                        @include('caseta.intercambios.partials.checklist', ['seccion' => 'olores', 'titulo' => 'Olores'])
+                        @include('caseta.intercambios.partials.checklist', ['seccion' => 'residuos', 'titulo' => 'Residuos'])
                         <template x-if="puntosDe('remolque').length">
                             <div>
-                                @include('admin.intercambio.partials.checklist', ['seccion' => 'remolque', 'titulo' => 'Revisión del remolque', 'descripcion' => 'Para el contrato de intercambio. Marca "No cumple" si tiene defecto.'])
+                                @include('caseta.intercambios.partials.checklist', ['seccion' => 'remolque', 'titulo' => 'Revisión del remolque', 'descripcion' => 'Para el contrato de intercambio. Marca "No cumple" si tiene defecto.'])
                             </div>
                         </template>
                     </div>
@@ -607,21 +601,6 @@ $coloresLlanta = "{
                 {{-- ---------- PASO 8: COMENTARIOS Y DAÑOS ---------- --}}
                 <template x-if="borrador.paso === 8">
                     <div class="space-y-4">
-                        <template x-if="relacionado">
-                            <div class="rounded-2xl bg-slate-200/60 border border-slate-300 p-4 space-y-2 text-sm">
-                                <p class="font-black text-slate-900">
-                                    <i class="fa-solid fa-clock-rotate-left"></i>
-                                    <span x-text="'Última ' + (borrador.tipo_movimiento === 'entrada' ? 'salida' : 'entrada') + ' de esta caja'"></span>
-                                </p>
-                                <p class="text-slate-600" x-text="relacionado.folio + ' · ' + fechaCorta(relacionado.fecha_hora)"></p>
-                                <template x-for="[titulo, valor] in [['Caja', relacionado.comentarios_caja], ['Tracto', relacionado.comentarios_tracto], ['Observaciones', relacionado.observaciones]]" :key="titulo">
-                                    <p x-show="valor"><span class="font-bold" x-text="titulo + ': '"></span><span x-text="valor"></span></p>
-                                </template>
-                                <p x-show="!relacionado.comentarios_caja && !relacionado.comentarios_tracto && !relacionado.observaciones" class="text-slate-500">Sin comentarios.</p>
-                                <a x-show="enLinea" :href="'/admin/intercambios/' + relacionado.id" target="_blank" class="inline-block font-bold text-blue-700">Ver fotos y detalle <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
-                            </div>
-                        </template>
-
                         {{-- ¿Tiene daños? Si dice que sí: descripción obligatoria y fotos si hace falta. --}}
                         @foreach (['caja' => ['la caja', 'fa-trailer'], 'tracto' => ['el tracto', 'fa-truck']] as $unidad => [$nombreUnidad, $iconoUnidad])
                         <div class="{{ $tarjeta }} space-y-3" :class="tieneDanos('{{ $unidad }}') && 'border-rose-300 bg-rose-50'">
@@ -643,7 +622,7 @@ $coloresLlanta = "{
                                     <span class="{{ $etiqueta }}">Marca el lado dañado: G = golpe, C = corte, A = agujero</span>
                                     <div class="space-y-2 rounded-xl bg-white border border-rose-200 p-3">
                                         <template x-for="punto in puntosDe('danos_caja')" :key="punto.id">
-                                            <div>@include('admin.intercambio.partials.punto')</div>
+                                            <div>@include('caseta.intercambios.partials.punto')</div>
                                         </template>
                                     </div>
                                 </div>
@@ -654,7 +633,7 @@ $coloresLlanta = "{
                                 </div>
                                 <div>
                                     <span class="{{ $etiqueta }}">Fotos del daño (si es necesario)</span>
-                                    @include('admin.intercambio.partials.fotos', ['filtro' => "{ tipo: 'problema', unidad: '{$unidad}' }", 'meta' => "{ tipo: 'problema', unidad: '{$unidad}' }", 'etiqueta' => 'Foto del daño'])
+                                    @include('caseta.intercambios.partials.fotos', ['filtro' => "{ tipo: 'problema', unidad: '{$unidad}' }", 'meta' => "{ tipo: 'problema', unidad: '{$unidad}' }", 'etiqueta' => 'Foto del daño'])
                                 </div>
                             </div>
                         </div>
@@ -689,7 +668,7 @@ $coloresLlanta = "{
                                         <template x-if="fotoDeVista(v.clave)">
                                             <div class="relative w-full h-full" x-data="{ get foto() { return fotoDeVista(v.clave) } }">
                                                 <img :src="urlFoto(foto)" :alt="v.etiqueta" class="w-full h-full object-cover">
-                                                @include('admin.intercambio.partials.estado-subida')
+                                                @include('caseta.intercambios.partials.estado-subida')
                                             </div>
                                         </template>
                                         <template x-if="!fotoDeVista(v.clave) && i === indiceSiguienteVista">
@@ -734,7 +713,6 @@ $coloresLlanta = "{
                             <div class="{{ $cabecera }}"><h3 class="font-black text-slate-900">Operador</h3><button type="button" @click="editar(1)" class="{{ $editar }}">Editar</button></div>
                             <p><span x-text="borrador.tipo_movimiento === 'entrada' ? 'Entrada' : 'Salida'"></span> · <span x-text="fechaCorta(borrador.fecha_hora)"></span></p>
                             <p class="font-bold" x-text="operador?.nombre"></p>
-                            <p x-show="operadorConVencidos" class="font-bold text-rose-700"><i class="fa-solid fa-triangle-exclamation"></i> Documentos vencidos</p>
                         </div>
 
                         <div class="grid sm:grid-cols-2 gap-4">
@@ -869,7 +847,7 @@ $coloresLlanta = "{
                 {{-- Qué llanta es: dibujo pequeño con la llanta resaltada y su ubicación --}}
                 <div class="flex items-center gap-4">
                     <div class="w-24 shrink-0 rounded-xl bg-slate-50 border border-slate-200 p-1">
-                        @include('admin.intercambio.partials.diagrama-llantas', ['mini' => true])
+                        @include('caseta.intercambios.partials.diagrama-llantas', ['mini' => true])
                     </div>
                     <div class="min-w-0 space-y-1">
                         <h3 id="llanta-titulo" class="text-2xl font-black text-slate-900" x-text="'Llanta ' + llantaAbierta"></h3>
@@ -911,7 +889,7 @@ $coloresLlanta = "{
                     <label class="{{ $etiqueta }}">Observaciones</label>
                     <input type="text" x-model="borrador.llantas[llantaAbierta].observaciones" maxlength="255" class="{{ $campo }}">
                 </div>
-                @include('admin.intercambio.partials.fotos', [
+                @include('caseta.intercambios.partials.fotos', [
                     'filtro' => "{ tipo: 'llanta', posicion: llantaAbierta }",
                     'meta' => "{ tipo: 'llanta', posicion: llantaAbierta }",
                     'etiqueta' => 'Foto (opcional)',

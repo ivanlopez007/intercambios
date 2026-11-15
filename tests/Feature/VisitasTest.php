@@ -11,12 +11,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\CreaEmpleadosRh;
 use Tests\Concerns\UsaBaseExternaDePrueba;
 use Tests\TestCase;
 
 class VisitasTest extends TestCase
 {
-    use RefreshDatabase, UsaBaseExternaDePrueba;
+    use CreaEmpleadosRh, RefreshDatabase, UsaBaseExternaDePrueba;
 
     private User $guardia;
 
@@ -116,13 +117,13 @@ class VisitasTest extends TestCase
             'firma' => $this->firmaPng(),
         ])->assertCreated();
 
-        $this->assertDatabaseHas('empresas', ['nombre' => 'Transportes Nuevos', 'razon_social' => ''], 'db_externa');
+        $this->assertDatabaseHas('empresas', ['nombre' => 'Transportes Nuevos', 'razon_social' => '']);
     }
 
     public function test_si_falla_la_base_de_datos_se_borra_la_firma_subida(): void
     {
         $empresa = $this->crearEmpresa('Walmart');
-        Schema::connection('db_externa')->drop('visitas');
+        Schema::drop('visitas');
 
         $this->withoutExceptionHandling();
 
@@ -343,6 +344,32 @@ class VisitasTest extends TestCase
             ->assertOk()
             ->assertSee('Juan Guardia')
             ->assertSee('Ana Guardia');
+    }
+
+    public function test_guardia_empleado_de_rh_queda_en_la_bitacora_con_su_id_de_caseta(): void
+    {
+        $this->crearSistemas();
+        $empleado = $this->crearEmpleado('HEF-0000640', 'seguridad@industrialhefesto.com', nombre: 'Luis Fernando', apellidoP: 'Rivas', apellidoM: 'Rodriguez');
+        $guardia = $this->perfilVinculado($empleado, 'seguridad@industrialhefesto.com', 'caseta');
+        $empresa = $this->crearEmpresa('Walmart');
+
+        $this->comoVinculado($guardia)->postJson(route('caseta.visitas.entrada'), [
+            'codigo_qr' => $empresa->id,
+            'nombre_persona' => 'Paco',
+            'persona_dirigida' => 'Compras',
+            'motivo' => 'Junta',
+            'firma' => $this->firmaPng(),
+        ])->assertCreated();
+
+        $visita = VisitaExterno::sole();
+        $this->postJson(route('caseta.visitas.salida'), ['visita_id' => $visita->id])->assertOk();
+
+        foreach (['entrada', 'salida'] as $tipo) {
+            $this->assertDatabaseHas('bitacora_visitas', [
+                'visita_id' => $visita->id, 'tipo' => $tipo,
+                'user_id' => $guardia->id, 'usuario_nombre' => 'Luis Fernando Rivas Rodriguez',
+            ]);
+        }
     }
 
     public function test_registro_sin_conexion_se_anota_a_quien_lo_hizo_aunque_lo_envie_otra_sesion(): void

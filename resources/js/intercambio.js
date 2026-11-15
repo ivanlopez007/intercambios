@@ -1,7 +1,23 @@
 /*
- * Asistente de intercambios (admin/intercambios/nuevo). Funciona sin conexión:
+ * ************************************************************
+ * Captura de intercambios (asistente: checklist, llantas, fotos, firmas)
+ * Archivos necesarios:
+ *   IntercambioController.php, RegistrarIntercambio.php, GuardarIntercambioRequest.php,
+ *   Intercambio.php, BitacoraIntercambio.php, FotoIntercambio.php, LlantaIntercambio.php,
+ *   PuntoInspeccion.php, RevisionPunto.php, intercambios/nuevo.blade.php,
+ *   partials/checklist.blade.php, partials/diagrama-llantas.blade.php,
+ *   partials/fotos.blade.php, partials/punto.blade.php, partials/estado-subida.blade.php,
+ *   intercambio.js, intercambio-almacen.js, config/intercambios.php,
+ *   create_bitacora_intercambios_table.php
+ * Fecha: 08 oct 2026 - 19 oct 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
+/*
+ * Asistente de intercambios (caseta/intercambios/nuevo). Funciona sin conexión:
  *
- * - Catálogos, operadores e historial se descargan de /admin/intercambios/datos cuando hay señal
+ * - Catálogos, operadores e historial se descargan de /caseta/intercambios/datos cuando hay señal
  *   y se guardan en IndexedDB (intercambio-almacen.js).
  * - El borrador se guarda en el dispositivo en cada cambio, con sus fotos (Blob). Se puede
  *   cerrar la app y continuarlo después, también en otro turno con el mismo dispositivo.
@@ -19,7 +35,7 @@ const PASO_SELLO = 5;
 const PASO_DANOS = 8;
 const PASO_RECORRIDO = 9;
 const PASO_FINAL = PASOS.length;
-const URL_DATOS = '/admin/intercambios/datos';
+const URL_DATOS = '/caseta/intercambios/datos';
 
 // Distribución de las 18 llantas vistas desde arriba: [izquierda exterior, izquierda interior, derecha interior, derecha exterior].
 const EJES = [
@@ -511,22 +527,6 @@ function asistenteIntercambio() {
             return lista.filter((o) => normalizar(o.nombre).includes(q) || normalizar(o.numero_empleado).includes(q)).slice(0, 30);
         },
 
-        estadoVencimiento(fecha) {
-            if (!fecha) return 'sin_dato';
-            const hoy = new Date();
-            hoy.setHours(0, 0, 0, 0);
-            const vence = new Date(`${fecha}T00:00:00`);
-            const dias = Math.round((vence - hoy) / 86400000);
-            if (dias < 0) return 'vencido';
-            if (dias <= (this.config.dias_aviso_vencimiento ?? 30)) return 'por_vencer';
-            return 'vigente';
-        },
-
-        get operadorConVencidos() {
-            const o = this.operador;
-            return Boolean(o) && [o.licencia_vence, o.apto_vence].some((f) => this.estadoVencimiento(f) === 'vencido');
-        },
-
         // ---------- Paso 2: caja ----------
 
         get caja() {
@@ -591,20 +591,8 @@ function asistenteIntercambio() {
             return '';
         },
 
-        // Último intercambio completado de la caja con cada movimiento.
-        get historialCaja() {
-            return this.borrador?.caja.modo === 'existente' ? this.paquete?.historial_cajas?.[this.borrador.caja.id] ?? {} : {};
-        },
-
         get advertenciasCaja() {
             const avisos = [];
-            const historial = this.historialCaja;
-            const ultimo = [historial.entrada, historial.salida].filter(Boolean)
-                .sort((a, b) => b.fecha_hora.localeCompare(a.fecha_hora))[0];
-
-            if (ultimo && ((historial.entrada === ultimo && this.borrador.tipo_movimiento === 'entrada') || (historial.salida === ultimo && this.borrador.tipo_movimiento === 'salida'))) {
-                avisos.push(`El último movimiento de esta caja también fue una ${this.borrador.tipo_movimiento} (${ultimo.folio}, ${fechaCorta(ultimo.fecha_hora)}).`);
-            }
 
             if (this.borrador.caja.modo === 'existente') {
                 const otros = this.borradores.filter((b) => b.id !== this.borrador.id && b.estado === 'editando' && b.caja?.modo === 'existente' && b.caja.id === this.borrador.caja.id);
@@ -612,11 +600,6 @@ function asistenteIntercambio() {
             }
 
             return avisos;
-        },
-
-        get relacionado() {
-            const contrario = this.borrador?.tipo_movimiento === 'entrada' ? 'salida' : 'entrada';
-            return this.historialCaja[contrario] ?? null;
         },
 
         // ---------- Paso 3: tractocamión ----------
@@ -831,7 +814,7 @@ function asistenteIntercambio() {
                 .then((r) => (r.ok && !r.redirected ? r.json() : {}))
                 .then((d) => d.token ?? null);
 
-            return fetch('/admin/intercambios/fotos', {
+            return fetch('/caseta/intercambios/fotos', {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { Accept: 'application/json', 'X-CSRF-TOKEN': tokenCsrf ?? '' },

@@ -1,5 +1,15 @@
 <?php
 
+/*
+ * ************************************************************
+ * Dashboard y gráficas
+ * Archivos necesarios:
+ *   DashboardController.php, admin/dashboard.blade.php, graficas.js
+ * Fecha: 02 nov 2026 - 06 nov 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\Intercambio;
@@ -11,7 +21,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
- * Dashboard del administrador: patio, movimientos, alertas, documentos de operadores y visitas.
+ * Dashboard del administrador: patio, movimientos, alertas y visitas.
  */
 class DashboardController extends Controller
 {
@@ -29,7 +39,6 @@ class DashboardController extends Controller
             'porDueno' => $this->porDueno($unidades),
             'tiempoEnPatio' => $this->tiempoEnPatio($unidades),
             'hallazgos' => $this->hallazgosFrecuentes(30),
-            'documentos' => $this->documentosPorVencer(),
             'recientes' => Intercambio::completados()->latest('fecha_hora')->latest('id')->limit(8)
                 ->get(['id', 'folio', 'tipo_movimiento', 'fecha_hora', 'caja_numero_economico', 'caja_cliente', 'tracto_numero_economico', 'guardia_nombre']),
             'visitas' => [
@@ -95,28 +104,6 @@ class DashboardController extends Controller
             ->map(fn ($n, $nombre) => ['punto' => $nombre, 'veces' => $n])
             ->values()
             ->all();
-    }
-
-    /** Operadores con licencia o apto médico vencido o por vencer, del más urgente al menos. */
-    private function documentosPorVencer(): Collection
-    {
-        $limite = today()->addDays((int) config('intercambios.dias_aviso_vencimiento'));
-
-        return Operador::with(['info', 'documento'])->get()
-            ->flatMap(fn (Operador $o) => collect([
-                'Licencia' => $o->documento?->fecha_vencimiento_licencia,
-                'Apto médico' => $o->documento?->fecha_vencimiento_apto,
-            ])
-                ->filter(fn ($fecha) => $fecha && $fecha->lte($limite))
-                ->map(fn ($fecha, $documento) => (object) [
-                    'operador' => $o->nombre_completo,
-                    'documento' => $documento,
-                    'fecha' => $fecha,
-                    'vencido' => $fecha->lt(today()),
-                    'dias' => (int) today()->diffInDays($fecha, false),
-                ])->values())
-            ->sortBy('fecha')
-            ->values();
     }
 
     private function diaCorto(CarbonInterface $dia): string

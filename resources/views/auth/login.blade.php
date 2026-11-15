@@ -1,3 +1,13 @@
+{{--
+    ************************************************************
+    Login y control de acceso por rol
+    Archivos necesarios:
+      AuthController.php, login.blade.php, EnsureUserHasRole.php, EnsureUserIsActive.php,
+      User.php, create_users_table.php, routes/web.php
+    Fecha: 14 jul 2026 - 25 jul 2026
+    Realizado por: Ivan Lopez
+    ************************************************************
+--}}
 <!DOCTYPE html>
 <html lang="es">
 
@@ -46,6 +56,7 @@
                 <label for="password" class="mb-1 block text-sm font-semibold text-slate-700">Contraseña</label>
                 <input id="password" name="password" type="password" required autocomplete="current-password"
                     class="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                <p class="mt-1 text-xs text-slate-500">Si eres empleado, es la misma contraseña de la app de RH.</p>
             </div>
 
             <label class="flex items-center gap-2 text-sm text-slate-600">

@@ -10,8 +10,6 @@ class InfoUsuarioExterno extends Model
 {
     use HasFactory;
 
-    protected $connection = 'db_externa';
-
     protected $table = 'info_usuarios';
 
     // Campos habilitados para asignación masiva (Mass Assignment)

@@ -1,3 +1,13 @@
+{{--
+    ************************************************************
+    Historial y detalle de intercambios
+    Archivos necesarios:
+      IntercambioController.php (index, show, foto, pdf, firma),
+      intercambio/historial.blade.php, intercambio/detalle.blade.php
+    Fecha: 26 oct 2026 - 31 oct 2026
+    Realizado por: Ivan Lopez
+    ************************************************************
+--}}
 @extends('admin.layout.layout')
 
 @section('title', $intercambio->folio)
@@ -10,12 +20,6 @@
 $i = $intercambio;
 $bloque = 'bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm';
 $titulo = 'text-sm font-black text-slate-900 uppercase tracking-wide mb-3';
-$vencimiento = function ($fecha) use ($diasAviso) {
-    if (! $fecha) return ['Sin dato', 'text-slate-500'];
-    if ($fecha->isPast() && ! $fecha->isToday()) return ['Vencido', 'text-rose-700'];
-    if ($fecha->lte(now()->addDays($diasAviso))) return ['Por vencer', 'text-amber-700'];
-    return ['Vigente', 'text-emerald-700'];
-};
 $coloresLlanta = ['rojo' => 'bg-rose-500 text-white border-rose-700', 'amarillo' => 'bg-amber-400 text-slate-900 border-amber-600', 'verde' => 'bg-emerald-500 text-white border-emerald-700'];
 $llantas = $i->llantas->keyBy('posicion');
 $ejes = [
@@ -49,18 +53,10 @@ $miniatura = fn ($foto) => route('admin.intercambios.foto', [$i, $foto]);
     </div>
     @endif
 
-    <div class="{{ $bloque }} grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+    <div class="{{ $bloque }} grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
         <div><p class="text-xs text-slate-500">Folio</p><p class="font-black text-indigo-700">{{ $i->folio }}</p></div>
         <div><p class="text-xs text-slate-500">Fecha y hora</p><p class="font-bold">{{ $i->fecha_hora->format('d/m/Y H:i') }}</p></div>
         <div><p class="text-xs text-slate-500">Guardia</p><p class="font-bold">{{ $i->guardia_nombre }}</p></div>
-        <div>
-            <p class="text-xs text-slate-500">Intercambio relacionado</p>
-            @if ($i->relacionado)
-            <a href="{{ route('admin.intercambios.show', $i->relacionado) }}" class="font-bold text-blue-700">{{ $i->relacionado->folio }}</a>
-            @else
-            <p class="font-bold text-slate-400">—</p>
-            @endif
-        </div>
     </div>
 
     @if ($i->fecha_hora->lt(now()->subYears(config('intercambios.anios_conservacion_fotos'))))
@@ -72,15 +68,9 @@ $miniatura = fn ($foto) => route('admin.intercambios.foto', [$i, $foto]);
     {{-- Operador --}}
     <div class="{{ $bloque }}">
         <h3 class="{{ $titulo }}">Operador</h3>
-        <div class="grid sm:grid-cols-4 gap-3 text-sm">
+        <div class="grid sm:grid-cols-3 gap-3 text-sm">
             <div class="sm:col-span-2"><p class="font-black text-slate-900">{{ $i->operador_nombre }}</p><p class="text-slate-500">No. empleado {{ $i->operador_numero_empleado }}</p></div>
             <div><p class="text-xs text-slate-500">Licencia</p><p class="font-bold">{{ $i->operador_licencia ?? 'Sin licencia registrada' }}</p></div>
-            <div class="space-y-1">
-                @foreach (['Licencia vence' => $i->operador_licencia_vence, 'Apto médico vence' => $i->operador_apto_medico_vence] as $etiqueta => $fecha)
-                @php([$estado, $color] = $vencimiento($fecha))
-                <p class="text-xs"><span class="text-slate-500">{{ $etiqueta }}:</span> <span class="font-bold">{{ $fecha?->format('d/m/Y') ?? '—' }}</span> <span class="font-bold {{ $color }}">{{ $estado }}</span></p>
-                @endforeach
-            </div>
         </div>
         <p class="text-xs text-slate-400 mt-2">Datos al momento del intercambio.</p>
     </div>

@@ -1,3 +1,15 @@
+{{--
+    ************************************************************
+    Estructura base, layouts y menús
+    Archivos necesarios:
+      config/menus.php, resources/views/admin/layout/layout.blade.php,
+      resources/views/caseta/layout/layout.blade.php,
+      resources/views/components/menu-lateral.blade.php, resources/css/app.css,
+      resources/js/app.js
+    Fecha: 01 jul 2026 - 11 jul 2026
+    Realizado por: Ivan Lopez
+    ************************************************************
+--}}
 <!DOCTYPE html>
 <html lang="es">
 
@@ -67,7 +79,7 @@
 
                 <div class="flex items-center space-x-3 shrink-0">
                     <span class="text-xs sm:text-sm font-medium text-slate-700 hidden sm:inline-block">
-                        {{ auth()->user()->name }}
+                        {{ auth()->user()->nombre_mostrado }}
                     </span>
                     <i class="fa-solid fa-circle-user text-xl sm:text-2xl text-amber-500"></i>
                     <form method="POST" action="{{ route('logout') }}" data-logout>

@@ -1,4 +1,20 @@
 /*
+ * ************************************************************
+ * Captura de intercambios (asistente: checklist, llantas, fotos, firmas)
+ * Archivos necesarios:
+ *   IntercambioController.php, RegistrarIntercambio.php, GuardarIntercambioRequest.php,
+ *   Intercambio.php, BitacoraIntercambio.php, FotoIntercambio.php, LlantaIntercambio.php,
+ *   PuntoInspeccion.php, RevisionPunto.php, intercambios/nuevo.blade.php,
+ *   partials/checklist.blade.php, partials/diagrama-llantas.blade.php,
+ *   partials/fotos.blade.php, partials/punto.blade.php, partials/estado-subida.blade.php,
+ *   intercambio.js, intercambio-almacen.js, config/intercambios.php,
+ *   create_bitacora_intercambios_table.php
+ * Fecha: 08 oct 2026 - 19 oct 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
+/*
  * Almacén local del asistente de intercambios (IndexedDB "hefesto-intercambios").
  *
  * - datos: catálogos, operadores e historial descargados del servidor, para trabajar sin señal.

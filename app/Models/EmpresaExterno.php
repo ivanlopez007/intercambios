@@ -9,8 +9,6 @@ class EmpresaExterno extends Model
 {
     use HasFactory;
 
-    protected $connection = 'db_externa';
-
     protected $table = 'empresas';
 
     protected $fillable = [

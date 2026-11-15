@@ -10,8 +10,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /** Tractocamión. Solo los de permisionarios llevan línea transportista. */
 class Tractocamion extends Model
 {
-    protected $connection = 'db_externa';
-
     protected $table = 'tractocamiones';
 
     protected $fillable = [

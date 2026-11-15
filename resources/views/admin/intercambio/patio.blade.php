@@ -1,3 +1,12 @@
+{{--
+    ************************************************************
+    Estado del patio
+    Archivos necesarios:
+      PatioController.php, EstadoPatio.php, intercambio/patio.blade.php
+    Fecha: 03 nov 2026 - 07 nov 2026
+    Realizado por: Ivan Lopez
+    ************************************************************
+--}}
 @extends('admin.layout.layout')
 
 @section('title', 'Patio')
@@ -28,8 +37,22 @@ $alertas = fn ($u) => array_filter([
 ]);
 @endphp
 
+
+
 @section('contenido')
 <div class="space-y-5">
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+            <h2 class="text-xl font-bold text-slate-800">Patio</h2>
+            <p class="text-xs text-gray-500">Cajas cuyo último movimiento fue una entrada.</p>
+        </div>
+        @include('admin.intercambio.exportar', [
+            'accion' => route('admin.intercambios.patio.exportar'),
+            'columnas' => \App\Services\ReporteIntercambios::columnasPatio(),
+            'filtrosActuales' => request()->only(\App\Services\EstadoPatio::FILTROS),
+        ])
+    </div>
 
     {{-- Resumen --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -163,20 +186,13 @@ $alertas = fn ($u) => array_filter([
                     <p><span class="font-semibold">{{ $i->tracto_numero_economico }}</span> · {{ $i->tracto_placa }}</p>
                     <p>{{ $i->tracto_linea ? 'Permisionario · '.$i->tracto_linea : 'Propio' }}@if ($i->odometro !== null) · {{ number_format($i->odometro) }} km @endif</p>
                     <p><span class="font-semibold">{{ $i->operador_nombre }}</span> ({{ $i->operador_numero_empleado }})</p>
-                    <p class="{{ $u->operador_vencido ? 'text-rose-700 font-semibold' : '' }}">
-                        Licencia: {{ $i->operador_licencia ?? 'sin registrar' }}@if ($u->operador_vencido) · documentos vencidos al entrar @endif
-                    </p>
+                    <p>Licencia: {{ $i->operador_licencia ?? 'sin registrar' }}</p>
                 </div>
 
                 <div class="{{ $seccion }}">
                     <p class="{{ $tituloSeccion }}"><i class="fa-solid fa-user-shield"></i> Entrada</p>
                     <p>{{ $i->fecha_hora->format('d/m/Y H:i') }} · {{ $u->tiempo }} en patio</p>
                     <p>Recibió: <span class="font-semibold">{{ $i->guardia_nombre }}</span></p>
-                    @if ($i->relacionado)
-                    <p>Salida anterior: <a href="{{ route('admin.intercambios.show', $i->relacionado) }}" class="font-semibold text-indigo-600">{{ $i->relacionado->folio }}</a> ({{ $i->relacionado->fecha_hora->format('d/m/Y') }})</p>
-                    @else
-                    <p class="text-slate-500">Sin salida anterior registrada</p>
-                    @endif
                 </div>
 
                 <div class="{{ $u->hallazgos->isNotEmpty() ? $seccionAlerta : $seccion }}">

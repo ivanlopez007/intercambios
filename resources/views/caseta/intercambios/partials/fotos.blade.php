@@ -7,7 +7,7 @@
     <template x-for="foto in fotosDe({{ $filtro }})" :key="foto.uuid">
         <div class="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
             <img :src="urlFoto(foto)" alt="Foto tomada" class="w-full h-full object-cover">
-            @include('admin.intercambio.partials.estado-subida')
+            @include('caseta.intercambios.partials.estado-subida')
             <button type="button" @click="quitarFoto(foto.uuid)"
                 class="absolute top-1 right-1 w-7 h-7 rounded-full bg-slate-900/75 text-white text-xs flex items-center justify-center"
                 aria-label="Quitar foto">

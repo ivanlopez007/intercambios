@@ -29,7 +29,7 @@ class UsuariosTest extends TestCase
             ->assertSee('Guardia Uno')
             ->assertSee('Admin Principal');
 
-        $this->get(route('admin.usuarios.create'))->assertOk()->assertSee('Crear usuario');
+        $this->get(route('admin.usuarios.create'))->assertOk()->assertSee('Crear cuenta');
         $this->get(route('admin.usuarios.edit', User::where('name', 'Guardia Uno')->sole()))->assertOk()->assertSee('Guardar cambios');
         $this->get(route('admin.usuarios.edit', $this->admin))->assertOk()->assertSee('No puedes quitarte el rol');
     }
@@ -65,7 +65,7 @@ class UsuariosTest extends TestCase
             'password_confirmation' => 'secreta-123',
         ])->assertSessionHasNoErrors();
 
-        $this->assertDatabaseHas('users', ['email' => 'otra@hefesto.test', 'rol' => 'admin']);
+        $this->assertDatabaseHas('usuarios_caseta', ['email' => 'otra@hefesto.test', 'rol' => 'admin', 'user_id' => null]);
     }
 
     public function test_valida_correo_unico_rol_y_contrasena(): void
@@ -153,6 +153,6 @@ class UsuariosTest extends TestCase
             'password_confirmation' => 'secreta-123',
         ])->assertForbidden();
 
-        $this->assertDatabaseMissing('users', ['email' => 'intruso@hefesto.test']);
+        $this->assertDatabaseMissing('usuarios_caseta', ['email' => 'intruso@hefesto.test']);
     }
 }

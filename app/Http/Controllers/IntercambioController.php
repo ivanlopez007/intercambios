@@ -1,5 +1,30 @@
 <?php
 
+/*
+ * ************************************************************
+ * Captura de intercambios (asistente: checklist, llantas, fotos, firmas)
+ * Archivos necesarios:
+ *   IntercambioController.php, RegistrarIntercambio.php, GuardarIntercambioRequest.php,
+ *   Intercambio.php, BitacoraIntercambio.php, FotoIntercambio.php, LlantaIntercambio.php,
+ *   PuntoInspeccion.php, RevisionPunto.php, intercambios/nuevo.blade.php,
+ *   partials/checklist.blade.php, partials/diagrama-llantas.blade.php,
+ *   partials/fotos.blade.php, partials/punto.blade.php, partials/estado-subida.blade.php,
+ *   intercambio.js, intercambio-almacen.js, config/intercambios.php,
+ *   create_bitacora_intercambios_table.php
+ * Fecha: 08 oct 2026 - 19 oct 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ *
+ * ************************************************************
+ * Historial y detalle de intercambios
+ * Archivos necesarios:
+ *   IntercambioController.php (index, show, foto, pdf, firma),
+ *   intercambio/historial.blade.php, intercambio/detalle.blade.php
+ * Fecha: 26 oct 2026 - 31 oct 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
 namespace App\Http\Controllers;
 
 use App\Http\Requests\GuardarIntercambioRequest;
@@ -29,7 +54,7 @@ use Illuminate\Validation\Rule;
 use RuntimeException;
 
 /**
- * Intercambios de cajas y tractocamiones (tablas en la base de RH, conexión `db_externa`).
+ * Intercambios de cajas y tractocamiones (tablas en la base de RH, la única que usa la app).
  *
  * El asistente funciona sin conexión: el borrador vive en el dispositivo y, al completarlo,
  * se encola. El service worker sube primero cada foto (subirFoto) y después el intercambio
@@ -42,46 +67,10 @@ class IntercambioController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Intercambio::query()->with(['cliente:id,nombre']);
-
-        if ($request->filled('folio')) {
-            $query->whereRaw("folio LIKE ? ESCAPE '!'", [$this->patronLike($request->input('folio'))]);
-        }
-
-        if ($request->filled('caja')) {
-            $caja = $this->patronLike($request->input('caja'));
-            $query->where(function ($q) use ($caja) {
-                $q->whereRaw("caja_numero_economico LIKE ? ESCAPE '!'", [$caja])
-                    ->orWhereHas('caja', fn ($c) => $c->whereRaw("numero_economico LIKE ? ESCAPE '!'", [$caja]));
-            });
-        }
-
-        // Cliente del viaje o dueño de la caja.
-        if ($request->filled('cliente')) {
-            $cliente = $this->patronLike($request->input('cliente'));
-            $query->where(function ($q) use ($cliente) {
-                $q->whereRaw("caja_cliente LIKE ? ESCAPE '!'", [$cliente])
-                    ->orWhereHas('cliente', fn ($c) => $c->whereRaw("nombre LIKE ? ESCAPE '!'", [$cliente]));
-            });
-        }
-
-        if (in_array($request->input('movimiento'), Intercambio::MOVIMIENTOS, true)) {
-            $query->where('tipo_movimiento', $request->input('movimiento'));
-        }
-
-        if (in_array($request->input('status'), Intercambio::STATUS, true)) {
-            $query->where('status', $request->input('status'));
-        }
-
-        if ($request->filled('desde')) {
-            $query->where('fecha_hora', '>=', $request->date('desde')->startOfDay());
-        }
-
-        if ($request->filled('hasta')) {
-            $query->where('fecha_hora', '<=', $request->date('hasta')->endOfDay());
-        }
-
-        $intercambios = $query->latest('fecha_hora')->latest('id')->paginate(15)->withQueryString();
+        $intercambios = Intercambio::query()->with(['cliente:id,nombre'])
+            ->filtrar($request->only(Intercambio::FILTROS))
+            ->latest('fecha_hora')->latest('id')
+            ->paginate(15)->withQueryString();
 
         return view('admin.intercambio.historial', compact('intercambios'));
     }
@@ -92,7 +81,7 @@ class IntercambioController extends Controller
      */
     public function create()
     {
-        return view('admin.intercambio.nuevo');
+        return view('caseta.intercambios.nuevo');
     }
 
     /**
@@ -107,8 +96,6 @@ class IntercambioController extends Controller
                 'nombre' => $o->nombre_completo,
                 'licencia' => $o->documento?->numero_licencia,
                 'tipo_licencia' => $o->documento?->tipoLicencia?->tipo_licencia,
-                'licencia_vence' => $o->documento?->fecha_vencimiento_licencia?->toDateString(),
-                'apto_vence' => $o->documento?->fecha_vencimiento_apto?->toDateString(),
             ])
             ->sortBy('nombre')
             ->values();
@@ -134,7 +121,6 @@ class IntercambioController extends Controller
                 ->get(['id', 'seccion', 'nombre', 'parent_id', 'tipo_respuesta', 'orden']),
             ...$this->historialUnidades(),
             'config' => [
-                'dias_aviso_vencimiento' => config('intercambios.dias_aviso_vencimiento'),
                 'llantas' => config('intercambios.llantas'),
                 'max_fotos_sello' => config('intercambios.max_fotos_sello'),
                 'recorrido' => config('intercambios.recorrido'),
@@ -144,27 +130,10 @@ class IntercambioController extends Controller
     }
 
     /**
-     * Último intercambio completado de cada caja (por movimiento) y llantas del último
-     * intercambio de cada caja y de cada tracto, para advertencias y precarga sin conexión.
+     * Llantas del último intercambio de cada caja y de cada tracto, para precargarlas sin conexión.
      */
     private function historialUnidades(): array
     {
-        $porMovimiento = Intercambio::completados()
-            ->whereIn('id', Intercambio::completados()->whereNotNull('caja_id')->selectRaw('max(id)')->groupBy('caja_id', 'tipo_movimiento'))
-            ->get(['id', 'folio', 'caja_id', 'tipo_movimiento', 'fecha_hora', 'comentarios_caja', 'comentarios_tracto', 'observaciones']);
-
-        $cajas = [];
-        foreach ($porMovimiento as $i) {
-            $cajas[$i->caja_id][$i->tipo_movimiento] = [
-                'id' => $i->id,
-                'folio' => $i->folio,
-                'fecha_hora' => $i->fecha_hora->toIso8601String(),
-                'comentarios_caja' => $i->comentarios_caja,
-                'comentarios_tracto' => $i->comentarios_tracto,
-                'observaciones' => $i->observaciones,
-            ];
-        }
-
         $ultimoPorCaja = Intercambio::completados()->whereNotNull('caja_id')->selectRaw('caja_id, max(id) as id')->groupBy('caja_id')->pluck('id', 'caja_id');
         $ultimoPorTracto = Intercambio::completados()->whereNotNull('tractocamion_id')->selectRaw('tractocamion_id, max(id) as id')->groupBy('tractocamion_id')->pluck('id', 'tractocamion_id');
 
@@ -177,7 +146,6 @@ class IntercambioController extends Controller
             ->mapWithKeys(fn ($l) => [$l->posicion => ['marca' => $l->marca, 'tipo' => $l->tipo]]);
 
         return [
-            'historial_cajas' => (object) $cajas,
             'llantas_cajas' => (object) $ultimoPorCaja->map(fn ($id) => $extraer($id, 11, 18))->all(),
             'llantas_tractos' => (object) $ultimoPorTracto->map(fn ($id) => $extraer($id, 1, 10))->all(),
         ];
@@ -272,15 +240,8 @@ class IntercambioController extends Controller
                 return $previo;
             }
 
-            $guardia = $this->autorDelRegistro($request);
-            $intercambio = $registrar->ejecutar($request->validated(), $guardia);
-
-            BitacoraIntercambio::create([
-                'id_cliente' => $idCliente,
-                'intercambio_id' => $intercambio->id,
-                'user_id' => $guardia->id,
-                'usuario_nombre' => $guardia->name,
-            ]);
+            // Crea el intercambio y su fila en bitacora_intercambios en la misma transacción.
+            $intercambio = $registrar->ejecutar($request->validated(), $this->autorDelRegistro($request));
         } finally {
             $candado->release();
         }
@@ -318,7 +279,7 @@ class IntercambioController extends Controller
     public function show(Intercambio $intercambio)
     {
         $intercambio->load([
-            'caja.tipoCaja', 'tractocamion.lineaTransportista', 'cliente', 'origen', 'destino', 'relacionado',
+            'caja.tipoCaja', 'tractocamion.lineaTransportista', 'cliente', 'origen', 'destino',
             'llantas', 'revisionPuntos.punto', 'fotos',
         ]);
 
@@ -332,7 +293,6 @@ class IntercambioController extends Controller
             'recorrido' => $intercambio->fotos->where('tipo', FotoIntercambio::RECORRIDO)
                 ->sortBy(fn (FotoIntercambio $f) => array_search($f->vista, FotoIntercambio::vistas(), true))
                 ->values(),
-            'diasAviso' => config('intercambios.dias_aviso_vencimiento'),
         ]);
     }
 
@@ -398,8 +358,4 @@ class IntercambioController extends Controller
     }
 
     /** Patrón "contiene" para LIKE donde % y _ escritos por el usuario se buscan como texto literal. */
-    private function patronLike(string $valor): string
-    {
-        return '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $valor).'%';
-    }
 }

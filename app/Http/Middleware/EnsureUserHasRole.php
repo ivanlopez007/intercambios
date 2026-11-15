@@ -1,5 +1,16 @@
 <?php
 
+/*
+ * ************************************************************
+ * Login y control de acceso por rol
+ * Archivos necesarios:
+ *   AuthController.php, login.blade.php, EnsureUserHasRole.php, EnsureUserIsActive.php,
+ *   User.php, create_users_table.php, routes/web.php
+ * Fecha: 14 jul 2026 - 25 jul 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
 namespace App\Http\Middleware;
 
 use Closure;

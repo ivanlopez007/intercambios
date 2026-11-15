@@ -9,8 +9,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /** Dueño de cajas y cliente de los viajes. Se desactiva, nunca se borra. */
 class Cliente extends Model
 {
-    protected $connection = 'db_externa';
-
     protected $table = 'clientes';
 
     protected $fillable = ['nombre', 'rfc', 'activo'];

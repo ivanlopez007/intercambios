@@ -4,11 +4,21 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\UsaBaseExternaDePrueba;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, UsaBaseExternaDePrueba;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // El dashboard y el menú consultan visitas e intercambios.
+        $this->prepararBaseExterna();
+        $this->prepararTablasIntercambio();
+    }
 
     public function test_guest_is_redirected_to_login_from_application_routes(): void
     {

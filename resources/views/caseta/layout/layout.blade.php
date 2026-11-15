@@ -1,9 +1,22 @@
+{{--
+    ************************************************************
+    Estructura base, layouts y menús
+    Archivos necesarios:
+      config/menus.php, resources/views/admin/layout/layout.blade.php,
+      resources/views/caseta/layout/layout.blade.php,
+      resources/views/components/menu-lateral.blade.php, resources/css/app.css,
+      resources/js/app.js
+    Fecha: 01 jul 2026 - 11 jul 2026
+    Realizado por: Ivan Lopez
+    ************************************************************
+--}}
 @php
 // Barra inferior para celulares: accesos directos a las tareas más frecuentes de caseta.
 $barraInferior = [
     ['title' => 'Inicio', 'icon' => 'fa-solid fa-house', 'route' => 'caseta.menu'],
     ['title' => 'Entrada', 'icon' => 'fa-solid fa-right-to-bracket', 'route' => 'caseta.entrada'],
     ['title' => 'Salida', 'icon' => 'fa-solid fa-right-from-bracket', 'route' => 'caseta.salida'],
+    ['title' => 'Intercambio', 'icon' => 'fa-solid fa-boxes-stacked', 'route' => 'caseta.intercambios.nuevo'],
     ['title' => 'QR', 'icon' => 'fa-solid fa-qrcode', 'route' => 'caseta.qr'],
 ];
 @endphp
@@ -104,7 +117,7 @@ $barraInferior = [
                     </button>
 
                     <span class="text-xs sm:text-sm font-medium text-slate-700 hidden sm:inline-block">
-                        {{ auth()->user()->name }}
+                        {{ auth()->user()->nombre_mostrado }}
                     </span>
                     <i class="fa-solid fa-circle-user text-xl sm:text-2xl text-blue-600"></i>
                     <form method="POST" action="{{ route('logout') }}" data-logout>
@@ -142,7 +155,7 @@ $barraInferior = [
     <!-- BARRA INFERIOR (CELULARES) -->
     <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]"
         aria-label="Navegación principal">
-        <div class="grid grid-cols-4">
+        <div class="grid grid-cols-5">
             @foreach ($barraInferior as $opcion)
             @php($activa = request()->routeIs($opcion['route']))
             <a href="{{ route($opcion['route']) }}" @if ($activa) aria-current="page" @endif

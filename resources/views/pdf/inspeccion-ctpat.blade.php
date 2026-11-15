@@ -1,3 +1,12 @@
+{{--
+    ************************************************************
+    PDF de contrato de intercambio e inspección CTPAT
+    Archivos necesarios:
+      PdfIntercambio.php, pdf/contrato-intercambio.blade.php, pdf/inspeccion-ctpat.blade.php
+    Fecha: 20 oct 2026 - 29 oct 2026
+    Realizado por: Ivan Lopez
+    ************************************************************
+--}}
 <!DOCTYPE html>
 <html lang="es">
 <head>

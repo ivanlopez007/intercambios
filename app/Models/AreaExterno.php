@@ -9,13 +9,11 @@ class AreaExterno extends Model
 {
     use HasFactory;
 
-    protected $connection = 'db_externa';
-
     protected $table = 'areas';
 
     protected $fillable = ['area'];
 
-    // Un área tiene muchos usuarios asignados (usuarios de la base externa)
+    // Un área tiene muchos usuarios asignados (empleados de RH)
     public function users()
     {
         return $this->hasMany(UserExterno::class, 'area_id');

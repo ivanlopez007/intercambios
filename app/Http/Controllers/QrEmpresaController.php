@@ -1,5 +1,17 @@
 <?php
 
+/*
+ * ************************************************************
+ * Empresas externas y códigos QR
+ * Archivos necesarios:
+ *   EmpresaExternoController.php, QrEmpresaController.php, EmpresaRequest.php,
+ *   EmpresaExterno.php, AreaExterno.php, empresas/index.blade.php, generarqr.blade.php,
+ *   selector-empresa.blade.php, selector-empresa.js
+ * Fecha: 10 ago 2026 - 21 ago 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\EmpresaExterno;

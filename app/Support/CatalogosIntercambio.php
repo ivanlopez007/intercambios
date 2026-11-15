@@ -1,5 +1,18 @@
 <?php
 
+/*
+ * ************************************************************
+ * Catálogos de intercambios
+ * Archivos necesarios:
+ *   CatalogoIntercambioController.php, CatalogosIntercambio.php, Caja.php, TipoCaja.php,
+ *   Tractocamion.php, Operador.php, InfoOperador.php, DocumentoOperador.php, TipoLicencia.php,
+ *   LineaTransportista.php, Cliente.php, Destino.php, SoloLectura.php,
+ *   catalogos/intercambio.blade.php
+ * Fecha: 29 sep 2026 - 07 oct 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
 namespace App\Support;
 
 use App\Models\Caja;
@@ -48,7 +61,7 @@ class CatalogosIntercambio
                 'campos' => [
                     'nombre' => ['etiqueta' => 'Nombre', 'reglas' => fn (?Model $registro) => [
                         'required', 'string', 'max:255',
-                        Rule::unique('db_externa.tipos_caja', 'nombre')->ignore($registro?->id),
+                        Rule::unique('tipos_caja', 'nombre')->ignore($registro?->id),
                     ]],
                 ],
             ],
@@ -65,18 +78,18 @@ class CatalogosIntercambio
                     'cliente_id' => [
                         'etiqueta' => 'Dueño', 'tipo' => 'select',
                         'opciones' => fn () => Cliente::orderBy('nombre')->pluck('nombre', 'id'),
-                        'reglas' => ['required', 'integer', 'exists:db_externa.clientes,id'],
+                        'reglas' => ['required', 'integer', 'exists:clientes,id'],
                     ],
                     'numero_economico' => ['etiqueta' => 'Número económico', 'reglas' => fn (?Model $registro, Request $request) => [
                         'required', 'string', 'max:30',
-                        Rule::unique('db_externa.cajas', 'numero_economico')
+                        Rule::unique('cajas', 'numero_economico')
                             ->where('cliente_id', $request->input('cliente_id'))
                             ->ignore($registro?->id),
                     ]],
                     'tipo_caja_id' => [
                         'etiqueta' => 'Tipo', 'tipo' => 'select',
                         'opciones' => fn () => TipoCaja::orderBy('nombre')->pluck('nombre', 'id'),
-                        'reglas' => ['nullable', 'integer', 'exists:db_externa.tipos_caja,id'],
+                        'reglas' => ['nullable', 'integer', 'exists:tipos_caja,id'],
                     ],
                     'placa' => ['etiqueta' => 'Placa', 'reglas' => ['required', 'string', 'max:20']],
                     'estado_placa' => ['etiqueta' => 'Estado de la placa', 'reglas' => ['nullable', 'string', 'max:50'], 'tabla' => false],
@@ -122,7 +135,7 @@ class CatalogosIntercambio
                         'opciones' => fn () => LineaTransportista::orderBy('nombre')->pluck('nombre', 'id'),
                         'reglas' => fn (?Model $registro, Request $request) => [
                             Rule::requiredIf($request->boolean('es_permisionario')), 'nullable', 'integer',
-                            'exists:db_externa.lineas_transportistas,id',
+                            'exists:lineas_transportistas,id',
                         ],
                     ],
                 ],

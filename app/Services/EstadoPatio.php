@@ -1,5 +1,15 @@
 <?php
 
+/*
+ * ************************************************************
+ * Estado del patio
+ * Archivos necesarios:
+ *   PatioController.php, EstadoPatio.php, intercambio/patio.blade.php
+ * Fecha: 03 nov 2026 - 07 nov 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
 namespace App\Services;
 
 use App\Models\Intercambio;
@@ -14,6 +24,9 @@ use Illuminate\Support\Collection;
  */
 class EstadoPatio
 {
+    /** Parámetros de filtro de la pantalla de patio (ver filtrar). */
+    public const FILTROS = ['filtro', 'dueno', 'buscar'];
+
     /**
      * Una unidad por caja en patio, de la que lleva más tiempo a la más reciente, con sus alertas.
      */
@@ -28,7 +41,6 @@ class EstadoPatio
                 'cliente:id,nombre',
                 'origen:id,nombre',
                 'destino:id,nombre',
-                'relacionado:id,folio,fecha_hora',
                 'llantas:id,intercambio_id,posicion,profundidad_32,psi',
                 // Solo los puntos con hallazgo, con su nombre para mostrarlos.
                 'revisionPuntos' => fn ($q) => $q->whereIn('resultado', RevisionPunto::CON_HALLAZGO)->with('punto:id,nombre,seccion'),
@@ -42,20 +54,44 @@ class EstadoPatio
                 $unidad = (object) [
                     'intercambio' => $i,
                     'horas' => $horas,
-                    'tiempo' => self::tiempo($i->fecha_hora->diffInMinutes(now())),
+                    'tiempo' => self::tiempo((int) $i->fecha_hora->diffInMinutes(now())),
                     'hallazgos' => $i->revisionPuntos,
                     'llantas_alerta' => $llantasAlerta,
                     'llantas_rojas' => $llantasAlerta->where('color', 'rojo')->count(),
                     'danos' => filled($i->comentarios_caja) || filled($i->comentarios_tracto),
                     'excede_tiempo' => $horas >= $horasAlerta,
                     'fotos' => $i->fotos->countBy('tipo'),
-                    'operador_vencido' => collect([$i->operador_licencia_vence, $i->operador_apto_medico_vence])
-                        ->contains(fn ($fecha) => $fecha && $fecha->lt($i->fecha_hora->copy()->startOfDay())),
                 ];
                 $unidad->con_alerta = $unidad->hallazgos->isNotEmpty() || $unidad->llantas_rojas > 0 || $unidad->danos || $unidad->excede_tiempo;
 
                 return $unidad;
             });
+    }
+
+    /**
+     * Filtros de la pantalla de patio (también los usa su reporte): filtro (cargadas, vacias,
+     * alertas), dueno y buscar.
+     */
+    public function filtrar(Collection $unidades, array $filtros): Collection
+    {
+        $filtro = (string) ($filtros['filtro'] ?? 'todos');
+        $dueno = (string) ($filtros['dueno'] ?? '');
+        $buscar = mb_strtolower(trim((string) ($filtros['buscar'] ?? '')));
+
+        return $unidades
+            ->filter(fn ($u) => match ($filtro) {
+                'cargadas' => $u->intercambio->estado_carga === Intercambio::CARGADA,
+                'vacias' => $u->intercambio->estado_carga === Intercambio::VACIA,
+                'alertas' => $u->con_alerta,
+                default => true,
+            })
+            ->filter(fn ($u) => $dueno === '' || ($u->intercambio->caja_cliente ?? 'Sin dueño') === $dueno)
+            ->filter(fn ($u) => $buscar === '' || str_contains(mb_strtolower(implode(' ', [
+                $u->intercambio->caja_numero_economico, $u->intercambio->caja_placa, $u->intercambio->caja_cliente,
+                $u->intercambio->tracto_numero_economico, $u->intercambio->operador_nombre, $u->intercambio->folio,
+                $u->intercambio->numero_sello, $u->intercambio->cliente?->nombre,
+            ])), $buscar))
+            ->values();
     }
 
     /** Totales del patio y movimientos de hoy. */

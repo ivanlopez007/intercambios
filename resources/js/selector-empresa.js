@@ -1,4 +1,16 @@
 /*
+ * ************************************************************
+ * Empresas externas y códigos QR
+ * Archivos necesarios:
+ *   EmpresaExternoController.php, QrEmpresaController.php, EmpresaRequest.php,
+ *   EmpresaExterno.php, AreaExterno.php, empresas/index.blade.php, generarqr.blade.php,
+ *   selector-empresa.blade.php, selector-empresa.js
+ * Fecha: 10 ago 2026 - 21 ago 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
+/*
  * Buscador de empresas para caseta: el mismo campo acepta el QR escaneado, el número de la
  * empresa o su nombre, y va sugiriendo empresas mientras se escribe.
  *

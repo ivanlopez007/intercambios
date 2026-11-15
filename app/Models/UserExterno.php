@@ -15,8 +15,6 @@ class UserExterno extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
 
-    protected $connection = 'db_externa';
-
     protected $table = 'users';
 
     protected $fillable = [

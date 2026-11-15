@@ -11,8 +11,6 @@ class DocumentoOperador extends Model
 {
     use SoloLectura;
 
-    protected $connection = 'db_externa';
-
     protected $table = 'documento_operadors';
 
     protected $casts = [

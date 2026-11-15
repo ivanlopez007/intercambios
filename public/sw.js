@@ -1,4 +1,14 @@
 /*
+ * ************************************************************
+ * Modo sin conexión (PWA y cola offline)
+ * Archivos necesarios:
+ *   public/sw.js, pwa.js, cola-offline.js
+ * Fecha: 14 sep 2026 - 25 sep 2026
+ * Realizado por: Ivan Lopez
+ * ************************************************************
+ */
+
+/*
  * Service worker de la app de caseta (Industrial Hefesto).
  *
  * - Archivos de /build (CSS/JS con hash en el nombre): caché primero; nunca cambian.
@@ -14,7 +24,7 @@
  *
  * Al cambiar este archivo, sube VERSION para que los celulares descarguen la nueva versión.
  */
-const VERSION = 'v12';
+const VERSION = 'v13';
 const CACHE_ESTATICOS = `hefesto-estaticos-${VERSION}`;
 const CACHE_PAGINAS = `hefesto-paginas-${VERSION}`;
 const MAX_ESTATICOS = 60;
@@ -32,7 +42,7 @@ const PRECACHE = [
 const PAGINAS_CASETA = ['/caseta', '/caseta/entrada', '/caseta/salida', '/caseta/qr'];
 
 // Páginas que se pueden abrir sin conexión (se guardan al visitarlas con señal).
-const PAGINAS_SIN_CONEXION = [...PAGINAS_CASETA, '/admin/intercambios/nuevo'];
+const PAGINAS_SIN_CONEXION = [...PAGINAS_CASETA, '/caseta/intercambios/nuevo'];
 
 // install prepara los recursos esenciales antes de activar esta versión.
 // Si falla el precache, la instalación también falla para evitar publicar una versión incompleta.
@@ -172,10 +182,10 @@ const ETIQUETA_SYNC = 'enviar-registros';
 const URL_ENVIO = {
     entrada: '/caseta/visitas/entrada',
     salida: '/caseta/visitas/salida',
-    intercambio: '/admin/intercambios',
-    'descartar-intercambio': '/admin/intercambios/descartar',
+    intercambio: '/caseta/intercambios',
+    'descartar-intercambio': '/caseta/intercambios/descartar',
 };
-const URL_FOTOS_INTERCAMBIO = '/admin/intercambios/fotos';
+const URL_FOTOS_INTERCAMBIO = '/caseta/intercambios/fotos';
 
 // Folios asignados en el envío actual, para avisar a la página del asistente.
 let foliosEnviados = [];

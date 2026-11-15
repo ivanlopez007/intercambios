@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\EmpleadoRh;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -24,16 +25,37 @@ class UsuarioRequest extends FormRequest
         ]);
     }
 
+    /**
+     * - Perfil vinculado a un empleado de RH: en Caseta solo se editan rol y activo
+     *   (nombre, correo y contraseña se administran desde RH).
+     * - Cuenta genérica: nombre, correo, contraseña, rol y activo. Su correo no puede ser
+     *   de un empleado activo de RH (a ellos se les da acceso desde RH).
+     */
     public function rules(): array
     {
         /** @var User|null $usuario */
         $usuario = $this->route('usuario');
 
-        return [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($usuario)],
+        $reglas = [
             'rol' => ['required', Rule::in(self::ROLES)],
             'activo' => ['boolean'],
+        ];
+
+        if ($usuario?->esVinculado()) {
+            return $reglas;
+        }
+
+        return $reglas + [
+            'name' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required', 'email', 'max:255',
+                Rule::unique('usuarios_caseta', 'email')->ignore($usuario),
+                function (string $atributo, mixed $valor, \Closure $fallar) {
+                    if (EmpleadoRh::conCorreo((string) $valor)->exists()) {
+                        $fallar('Ese correo es de un empleado; dale acceso a Intercambios desde la app de RH.');
+                    }
+                },
+            ],
             // Al editar, la contraseña es opcional: si se deja vacía no cambia.
             'password' => [$usuario ? 'nullable' : 'required', 'string', 'min:8', 'max:255', 'confirmed'],
         ];

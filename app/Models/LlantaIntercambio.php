@@ -17,8 +17,6 @@ class LlantaIntercambio extends Model
 
     public const TIPOS = [self::ORIGINAL, self::RENOVADA];
 
-    protected $connection = 'db_externa';
-
     protected $table = 'llantas_intercambio';
 
     protected $guarded = ['id'];

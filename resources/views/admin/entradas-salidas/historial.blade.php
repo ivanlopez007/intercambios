@@ -1,3 +1,12 @@
+{{--
+    ************************************************************
+    Historial de entradas y salidas (administración)
+    Archivos necesarios:
+      VisitaExternoController.php (historial), entradas-salidas/historial.blade.php
+    Fecha: 28 sep 2026 - 02 oct 2026
+    Realizado por: Ivan Lopez
+    ************************************************************
+--}}
 @extends('admin.layout.layout')
 @section('title', 'Historial de Entradas y Salidas de Visitas')
 @section('page-title', 'Historial de Entradas y Salidas de Visitas')

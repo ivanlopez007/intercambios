@@ -52,8 +52,6 @@ class PuntoInspeccion extends Model
         ],
     ];
 
-    protected $connection = 'db_externa';
-
     protected $table = 'puntos_inspeccion';
 
     protected $fillable = ['nombre', 'orden', 'activo'];

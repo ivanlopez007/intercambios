@@ -1,3 +1,12 @@
+{{--
+    ************************************************************
+    Dashboard y gráficas
+    Archivos necesarios:
+      DashboardController.php, admin/dashboard.blade.php, graficas.js
+    Fecha: 02 nov 2026 - 06 nov 2026
+    Realizado por: Ivan Lopez
+    ************************************************************
+--}}
 @extends('admin.layout.layout')
 @section('title', 'Dashboard')
 @section('page-title', 'Dashboard')
@@ -20,11 +29,11 @@ $totalDias = collect($porDia);
 
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-            <h2 class="text-xl font-black text-slate-900">Hola, {{ explode(' ', auth()->user()->name)[0] }}</h2>
+            <h2 class="text-xl font-black text-slate-900">Hola, {{ explode(' ', auth()->user()->nombre_mostrado)[0] }}</h2>
             <p class="text-xs text-slate-500">{{ now()->locale('es')->isoFormat('dddd D [de] MMMM, HH:mm') }}</p>
         </div>
         <div class="flex gap-2">
-            <a href="{{ route('admin.intercambios.nuevo') }}" class="flex-1 sm:flex-none text-center px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold">
+            <a href="{{ route('caseta.intercambios.nuevo') }}" class="flex-1 sm:flex-none text-center px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold">
                 <i class="fa-solid fa-plus"></i> Nuevo intercambio
             </a>
             <a href="{{ route('admin.intercambios.patio') }}" class="flex-1 sm:flex-none text-center px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-sm font-bold hover:bg-slate-50">
@@ -105,8 +114,8 @@ $totalDias = collect($porDia);
         </section>
     </div>
 
-    {{-- Dueños, hallazgos y documentos --}}
-    <div class="grid lg:grid-cols-3 gap-4">
+    {{-- Dueños y hallazgos --}}
+    <div class="grid lg:grid-cols-2 gap-4">
         <section class="{{ $tarjeta }} p-4">
             <h3 class="{{ $titulo }}">Cajas en patio por dueño</h3>
             <p class="{{ $subtitulo }} mb-3">Quién tiene más cajas dentro</p>
@@ -137,29 +146,6 @@ $totalDias = collect($porDia);
             @else
             <p class="text-sm text-emerald-700 font-semibold py-8 text-center"><i class="fa-solid fa-circle-check"></i> Sin hallazgos en 30 días.</p>
             @endif
-        </section>
-
-        <section class="{{ $tarjeta }} p-4">
-            <h3 class="{{ $titulo }}">Documentos de operadores</h3>
-            <p class="{{ $subtitulo }} mb-3">Vencidos o que vencen en {{ config('intercambios.dias_aviso_vencimiento') }} días o menos</p>
-            <ul class="divide-y divide-slate-100">
-                @forelse ($documentos->take(8) as $d)
-                <li class="py-2 flex items-start justify-between gap-2 text-sm">
-                    <div class="min-w-0">
-                        <p class="font-semibold text-slate-800 truncate">{{ $d->operador }}</p>
-                        <p class="text-xs text-slate-500">{{ $d->documento }} · {{ $d->fecha->format('d/m/Y') }}</p>
-                    </div>
-                    @if ($d->vencido)
-                    <span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800"><i class="fa-solid fa-circle-xmark"></i> Vencido</span>
-                    @else
-                    <span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800"><i class="fa-solid fa-clock"></i> {{ $d->dias === 0 ? 'Hoy' : 'En '.$d->dias.' d' }}</span>
-                    @endif
-                </li>
-                @empty
-                <li class="py-8 text-center text-sm text-emerald-700 font-semibold"><i class="fa-solid fa-circle-check"></i> Todos los documentos están vigentes.</li>
-                @endforelse
-            </ul>
-            @if ($documentos->count() > 8)<p class="text-xs text-slate-500 pt-2">Y {{ $documentos->count() - 8 }} más.</p>@endif
         </section>
     </div>
 

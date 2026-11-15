@@ -19,7 +19,7 @@
     <textarea x-model="borrador.revision[punto.id].observaciones" rows="2" maxlength="2000"
         placeholder="¿Qué se encontró? (obligatorio)"
         class="w-full rounded-xl border border-rose-300 bg-white px-3 py-2.5 text-base focus:border-rose-500 focus:ring-2 focus:ring-rose-200 outline-none"></textarea>
-    @include('admin.intercambio.partials.fotos', [
+    @include('caseta.intercambios.partials.fotos', [
         'filtro' => "{ tipo: 'punto', punto_inspeccion_id: punto.id }",
         'meta' => "{ tipo: 'punto', punto_inspeccion_id: punto.id }",
         'etiqueta' => 'Evidencia',
